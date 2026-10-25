@@ -16,7 +16,7 @@ export function tierOf(pred, actual) {
 }
 
 export function weightOf(tier, s) {
-  return { exact: s.wExact, diff: s.wDiff, outcome: s.wOutcome, near: s.wNear, closest: 1 }[tier] || 0;
+  return { exact: s.wExact, diff: s.wDiff, outcome: s.wOutcome, near: s.wNear }[tier] || 0;
 }
 
 // Splits `total` cents proportionally to weights. Rounding leftovers
@@ -35,25 +35,49 @@ export function splitProportional(total, weights) {
   return out;
 }
 
+export const MIN_WINNERS = 2;
+
 /**
- * Computes the settlement of a match. The whole pot is always paid out:
- * if no prediction reaches any tier, the closest prediction(s) by total
- * goal distance share it.
+ * Computes the settlement of a match. The whole pot is always paid out and
+ * always shared by at least two players (when at least two took part):
+ * predictions that reach a tier share it by tier weight, and if fewer than
+ * two did, the next closest predictions by total goal error join in with a
+ * weight no bigger than "near", scaled down the further off they are.
  * predictions: [{ id, user_id, home, away }]
  * Returns { pot, rows: [{ id, user_id, tier, payout }] }
  */
 export function settle({ predictions, actual, stake, bonus, settings }) {
   const pot = stake * predictions.length + bonus;
-  const rows = predictions.map((p) => ({ id: p.id, user_id: p.user_id, tier: tierOf(p, actual), payout: 0 }));
-  if (!rows.length) return { pot, rows };
+  const rows = predictions.map((p) => ({
+    id: p.id,
+    user_id: p.user_id,
+    tier: tierOf(p, actual),
+    dist: distance(p, actual),
+    weight: 0,
+    payout: 0,
+  }));
+  if (!rows.length) return { pot, rows: [] };
 
-  if (!rows.some((r) => weightOf(r.tier, settings) > 0)) {
-    const dists = predictions.map((p) => distance(p, actual));
-    const best = Math.min(...dists);
-    rows.forEach((r, i) => (r.tier = dists[i] === best ? 'closest' : null));
+  rows.forEach((r) => (r.weight = weightOf(r.tier, settings)));
+  const winners = rows.filter((r) => r.weight > 0).length;
+
+  const need = Math.min(MIN_WINNERS, rows.length);
+  if (winners < need) {
+    // Closest of the rest by goal distance; ties at the cut-off are all included.
+    const rest = rows.filter((r) => r.weight === 0).sort((a, b) => a.dist - b.dist);
+    const cutoff = rest[need - winners - 1].dist;
+    const joiners = rest.filter((r) => r.dist <= cutoff);
+    const base = settings.wNear > 0 ? settings.wNear : 1;
+    const minDist = Math.max(1, joiners[0].dist);
+    for (const r of joiners) {
+      r.tier = 'closest';
+      r.weight = (base * minDist) / Math.max(1, r.dist);
+    }
   }
 
-  const weights = rows.map((r) => weightOf(r.tier, settings));
-  splitProportional(pot, weights).forEach((p, i) => (rows[i].payout = p));
-  return { pot, rows };
+  splitProportional(
+    pot,
+    rows.map((r) => r.weight)
+  ).forEach((p, i) => (rows[i].payout = p));
+  return { pot, rows: rows.map(({ id, user_id, tier, payout }) => ({ id, user_id, tier, payout })) };
 }

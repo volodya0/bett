@@ -17,11 +17,13 @@ export default function Admin() {
           {pendingCount > 0 && <span className="count">{pendingCount}</span>}
         </NavLink>
         <NavLink to="/admin/settings">{t('admin.settings')}</NavLink>
+        <NavLink to="/admin/logs">{t('admin.logs')}</NavLink>
       </nav>
       <Routes>
         <Route index element={<AdminMatches />} />
         <Route path="users" element={<AdminUsers />} />
         <Route path="settings" element={<AdminSettings />} />
+        <Route path="logs" element={<AdminLogs />} />
       </Routes>
     </div>
   );
@@ -411,5 +413,68 @@ function AdminSettings() {
         </div>
       </div>
     </>
+  );
+}
+
+// ---------------- Activity log ----------------
+
+const PAGE_NAMES = { '/': 'nav.matches', '/history': 'nav.history', '/rules': 'nav.rules' };
+
+function AdminLogs() {
+  const { t, locale } = useI18n();
+  const [users, setUsers] = useState([]);
+  const [user, setUser] = useState('');
+  const [rows, setRows] = useState(null);
+
+  const load = () => api.get(`/api/admin/logs?limit=500${user ? `&user=${user}` : ''}`).then(setRows);
+  useEffect(() => {
+    api.get('/api/admin/users').then(setUsers);
+  }, []);
+  useEffect(() => {
+    load();
+  }, [user]);
+
+  const describe = (r) => {
+    if (r.action === 'view') {
+      const key = PAGE_NAMES[r.detail] || (r.detail.startsWith('/admin') ? 'nav.admin' : null);
+      return `${t('log.view')}: ${key ? t(key) : r.detail}`;
+    }
+    const label = t('log.' + r.action);
+    return r.detail ? `${label}: ${r.detail}` : label;
+  };
+
+  return (
+    <section className="stack">
+      <div className="row">
+        <h2 style={{ flex: 1, margin: 0 }}>{t('admin.logs')}</h2>
+        <select value={user} onChange={(e) => setUser(e.target.value)} style={{ width: 'auto' }}>
+          <option value="">{t('log.allUsers')}</option>
+          {users.map((u) => (
+            <option key={u.id} value={u.id}>{u.username}</option>
+          ))}
+        </select>
+        <button className="btn ghost small-btn" onClick={load}>{t('log.refresh')}</button>
+      </div>
+      <p className="muted small">{t('log.hint')}</p>
+      {!rows ? (
+        <div className="loading" />
+      ) : rows.length === 0 ? (
+        <p className="muted">{t('log.empty')}</p>
+      ) : (
+        <div className="card table-wrap">
+          <table className="table logs">
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.id} className={'log-' + (r.action.startsWith('admin') ? 'admin' : r.action)}>
+                  <td className="nowrap muted">{new Date(r.createdAt + 'Z').toLocaleString(locale, { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</td>
+                  <td className="nowrap"><b>{r.username || '—'}</b></td>
+                  <td>{describe(r)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </section>
   );
 }

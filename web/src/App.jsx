@@ -25,6 +25,12 @@ export default function App() {
   useEffect(() => {
     refresh();
   }, [location.pathname, refresh]);
+
+  // Page views go to the admin activity log.
+  const loggedIn = !!me?.user;
+  useEffect(() => {
+    if (loggedIn) api.post('/api/log', { page: location.pathname }).catch(() => {});
+  }, [location.pathname, loggedIn]);
   useEffect(() => {
     const t = setInterval(refresh, 60_000);
     return () => clearInterval(t);

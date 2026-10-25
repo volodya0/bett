@@ -70,9 +70,29 @@ app.use('/api', (req, res, next) => {
 });
 
 const toCents = (points) => Math.round(Number(points) * 100);
+// Rating only counts settled matches: a stake on a match that is still open
+// is not subtracted until the result is in.
+const SETTLED = `NOT (t.kind = 'stake' AND t.match_id IN (SELECT id FROM matches WHERE status = 'open'))`;
 const balanceOf = (userId) =>
-  db.prepare('SELECT COALESCE(SUM(amount), 0) AS b FROM transactions WHERE user_id = ?').get(userId).b;
+  db.prepare(`SELECT COALESCE(SUM(t.amount), 0) AS b FROM transactions t WHERE t.user_id = ? AND ${SETTLED}`).get(userId).b;
 const isLocked = (m) => m.status !== 'open' || Date.now() >= Date.parse(m.kickoff);
+
+// ---------- activity log ----------
+
+const LOG_DAYS = 30;
+const insertLog = db.prepare('INSERT INTO activity (user_id, action, detail) VALUES (?, ?, ?)');
+function logEvent(userId, action, detail = '') {
+  try {
+    insertLog.run(userId ?? null, action, String(detail).slice(0, 200));
+  } catch (e) {
+    console.error('log failed', e);
+  }
+}
+const pruneLogs = () => db.prepare(`DELETE FROM activity WHERE created_at < datetime('now', '-${LOG_DAYS} days')`).run();
+pruneLogs();
+setInterval(pruneLogs, 6 * 3600 * 1000).unref();
+
+const matchLabel = (m) => `${m.home} — ${m.away}`;
 
 function currentUser(req) {
   if (!req.session?.uid) return null;
@@ -167,6 +187,7 @@ app.post(
       .prepare('INSERT INTO users (username, password_hash, is_admin, approved) VALUES (?, ?, ?, ?)')
       .run(username, bcrypt.hashSync(password, 10), isAdmin ? 1 : 0, approved ? 1 : 0);
     req.session.uid = Number(lastInsertRowid);
+    logEvent(req.session.uid, 'register', approved ? '' : 'pending');
     return { ok: true };
   })
 );
@@ -177,6 +198,7 @@ app.post(
     const u = db.prepare('SELECT * FROM users WHERE username = ?').get(String(req.body.username || '').trim());
     if (!u || !bcrypt.compareSync(String(req.body.password || ''), u.password_hash)) fail(401, 'badCredentials');
     req.session.uid = u.id;
+    logEvent(u.id, 'login');
     return { ok: true };
   })
 );
@@ -184,6 +206,7 @@ app.post(
 app.post(
   '/api/logout',
   wrap((req) => {
+    if (req.session?.uid) logEvent(req.session.uid, 'logout');
     req.session = null;
     return { ok: true };
   })
@@ -247,6 +270,7 @@ app.post(
           away,
           existing.id
         );
+        logEvent(u.id, 'bet_update', `${matchLabel(m)}: ${home}:${away}`);
       } else {
         db.prepare('INSERT INTO predictions (match_id, user_id, home, away) VALUES (?, ?, ?, ?)').run(m.id, u.id, home, away);
         db.prepare("INSERT INTO transactions (user_id, amount, kind, match_id) VALUES (?, ?, 'stake', ?)").run(
@@ -254,6 +278,7 @@ app.post(
           -m.stake,
           m.id
         );
+        logEvent(u.id, 'bet', `${matchLabel(m)}: ${home}:${away}`);
       }
       return { ok: true, balance: balanceOf(u.id) };
     });
@@ -269,8 +294,26 @@ app.delete(
       if (isLocked(m)) fail(409, 'cantWithdraw');
       db.prepare('DELETE FROM predictions WHERE match_id = ? AND user_id = ?').run(m.id, u.id);
       db.prepare("DELETE FROM transactions WHERE match_id = ? AND user_id = ? AND kind = 'stake'").run(m.id, u.id);
+      logEvent(u.id, 'bet_withdraw', matchLabel(m));
       return { ok: true, balance: balanceOf(u.id) };
     });
+  })
+);
+
+// Page views from the client. Repeats of the same page within a minute are skipped.
+app.post(
+  '/api/log',
+  wrap((req) => {
+    const u = currentUser(req);
+    if (!u) return { ok: true };
+    const page = String(req.body.page || '').slice(0, 60);
+    const recent = db
+      .prepare(
+        `SELECT 1 FROM activity WHERE user_id = ? AND action = 'view' AND detail = ? AND created_at > datetime('now', '-1 minute')`
+      )
+      .get(u.id, page);
+    if (!recent) logEvent(u.id, 'view', page);
+    return { ok: true };
   })
 );
 
@@ -301,6 +344,7 @@ app.post(
     if (!text) fail(400, 'commentEmpty');
     if (text.length > 1000) fail(400, 'commentTooLong');
     db.prepare('INSERT INTO comments (match_id, user_id, text) VALUES (?, ?, ?)').run(m.id, u.id, text);
+    logEvent(u.id, 'comment', `${matchLabel(m)}: ${text}`);
     return { ok: true };
   })
 );
@@ -326,7 +370,7 @@ app.get(
     return db
       .prepare(
         `SELECT u.id, u.username,
-           (SELECT COALESCE(SUM(amount),0) FROM transactions t WHERE t.user_id = u.id) AS balance,
+           (SELECT COALESCE(SUM(t.amount),0) FROM transactions t WHERE t.user_id = u.id AND ${SETTLED}) AS balance,
            (SELECT COUNT(*) FROM predictions p WHERE p.user_id = u.id) AS bets,
            (SELECT COUNT(*) FROM predictions p WHERE p.user_id = u.id AND p.tier = 'exact') AS exact,
            (SELECT COUNT(*) FROM predictions p WHERE p.user_id = u.id AND p.payout > 0) AS hits
@@ -345,7 +389,7 @@ app.get(
         `SELECT t.amount, t.kind, t.note, t.match_id AS matchId, t.created_at AS createdAt,
            m.home, m.away, m.home_score AS homeScore, m.away_score AS awayScore
          FROM transactions t LEFT JOIN matches m ON m.id = t.match_id
-         WHERE t.user_id = ? ORDER BY t.id DESC`
+         WHERE t.user_id = ? AND ${SETTLED} ORDER BY t.id DESC`
       )
       .all(u.id);
   })
@@ -385,6 +429,7 @@ app.put(
       else patch[k] = String(v).trim();
     }
     saveSettings(patch);
+    logEvent(req.session.uid, 'admin_settings');
     return getSettings();
   })
 );
@@ -426,7 +471,9 @@ app.post(
   '/api/admin/matches',
   wrap((req) => {
     requireAdmin(req);
-    return { id: insertMatch(readMatchBody(req.body)) };
+    const d = readMatchBody(req.body);
+    logEvent(req.session.uid, 'admin_match', matchLabel(d));
+    return { id: insertMatch(d) };
   })
 );
 
@@ -457,6 +504,7 @@ app.post(
         if (exists.get(d.home, d.away, d.kickoff)) skipped++;
         else created.push(insertMatch(d));
       }
+      logEvent(req.session.uid, 'admin_import', `${created.length} / ${parsed.length}`);
       return { created: created.length, skipped, ids: created };
     });
   })
@@ -520,6 +568,7 @@ app.post(
         actual.away,
         m.id
       );
+      logEvent(req.session.uid, 'admin_result', `${matchLabel(m)} ${actual.home}:${actual.away}`);
       return { ok: true, pot: r.pot };
     });
   })
@@ -537,6 +586,7 @@ app.post(
       const addTx = db.prepare("INSERT INTO transactions (user_id, amount, kind, match_id) VALUES (?, ?, 'refund', ?)");
       for (const p of preds) addTx.run(p.user_id, m.stake, m.id);
       db.prepare("UPDATE matches SET status = 'cancelled' WHERE id = ?").run(m.id);
+      logEvent(req.session.uid, 'admin_cancel', matchLabel(m));
       return { ok: true };
     });
   })
@@ -553,6 +603,7 @@ app.post(
       db.prepare("DELETE FROM transactions WHERE match_id = ? AND kind IN ('payout', 'refund')").run(m.id);
       db.prepare('UPDATE predictions SET tier = NULL, payout = NULL WHERE match_id = ?').run(m.id);
       db.prepare("UPDATE matches SET status = 'open', home_score = NULL, away_score = NULL WHERE id = ?").run(m.id);
+      logEvent(req.session.uid, 'admin_reopen', matchLabel(m));
       return { ok: true };
     });
   })
@@ -565,7 +616,7 @@ app.get(
     return db
       .prepare(
         `SELECT u.id, u.username, u.is_admin AS isAdmin, u.approved, u.created_at AS createdAt,
-           (SELECT COALESCE(SUM(amount),0) FROM transactions t WHERE t.user_id = u.id) AS balance
+           (SELECT COALESCE(SUM(t.amount),0) FROM transactions t WHERE t.user_id = u.id AND ${SETTLED}) AS balance
          FROM users u ORDER BY u.approved, u.username`
       )
       .all();
@@ -583,6 +634,11 @@ app.post(
       amount,
       String(req.body.note || '').trim()
     );
+    logEvent(
+      req.session.uid,
+      'admin_adjust',
+      `${db.prepare('SELECT username FROM users WHERE id = ?').get(Number(req.params.id))?.username}: ${amount / 100}`
+    );
     return { ok: true };
   })
 );
@@ -592,6 +648,7 @@ app.post(
   wrap((req) => {
     requireAdmin(req);
     db.prepare('UPDATE users SET approved = 1 WHERE id = ?').run(Number(req.params.id));
+    logEvent(req.session.uid, 'admin_approve', db.prepare('SELECT username FROM users WHERE id = ?').get(Number(req.params.id))?.username);
     return { ok: true };
   })
 );
@@ -604,6 +661,7 @@ app.delete(
     const id = Number(req.params.id);
     if (id === me.id) fail(400, 'cantUnadminSelf');
     if (db.prepare('SELECT 1 FROM transactions WHERE user_id = ?').get(id)) fail(409, 'cantDeleteUser');
+    logEvent(me.id, 'admin_reject', db.prepare('SELECT username FROM users WHERE id = ?').get(id)?.username);
     db.prepare('DELETE FROM users WHERE id = ?').run(id);
     return { ok: true };
   })
@@ -630,6 +688,23 @@ app.post(
   })
 );
 
+app.get(
+  '/api/admin/logs',
+  wrap((req) => {
+    requireAdmin(req);
+    const userId = Number(req.query.user) || null;
+    const limit = Math.min(1000, Number(req.query.limit) || 300);
+    return db
+      .prepare(
+        `SELECT a.id, a.action, a.detail, a.created_at AS createdAt, u.username
+         FROM activity a LEFT JOIN users u ON u.id = a.user_id
+         WHERE (? IS NULL OR a.user_id = ?)
+         ORDER BY a.id DESC LIMIT ?`
+      )
+      .all(userId, userId, limit);
+  })
+);
+
 // Full data dump for backups or a quick look (password hashes excluded).
 app.get(
   '/api/admin/export',
@@ -644,6 +719,7 @@ app.get(
       predictions: db.prepare('SELECT * FROM predictions ORDER BY id').all(),
       transactions: db.prepare('SELECT * FROM transactions ORDER BY id').all(),
       comments: db.prepare('SELECT * FROM comments ORDER BY id').all(),
+      activity: db.prepare('SELECT * FROM activity ORDER BY id').all(),
     };
     const date = dump.exportedAt.slice(0, 10);
     res.setHeader('Content-Disposition', `attachment; filename="bett-${date}.json"`);

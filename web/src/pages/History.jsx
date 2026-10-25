@@ -21,7 +21,6 @@ export default function History() {
 
   return (
     <section>
-      <h2>{t('history.title')}</h2>
       {rows.length === 0 ? (
         <p className="muted">{t('history.empty')}</p>
       ) : (
