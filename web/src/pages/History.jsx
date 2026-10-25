@@ -32,7 +32,7 @@ export default function History() {
             <li key={i}>
               <span className="kind">{KIND[r.kind] || '•'}</span>
               <span className="note">
-                {r.matchId ? <Link to={`/match/${r.matchId}`}>{describe(r)}</Link> : describe(r)}
+                {r.matchId ? <Link to={`/#match-${r.matchId}`}>{describe(r)}</Link> : describe(r)}
                 <span className="muted small"> · {new Date(r.createdAt + 'Z').toLocaleString(locale)}</span>
               </span>
               <span className={r.amount > 0 ? 'win' : 'lose'}>{signedPts(r.amount)}</span>

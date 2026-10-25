@@ -1,85 +1,63 @@
-import React, { useEffect, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import React, { useState } from 'react';
 import { api, fmtDate, pts, TIER_EMOJI } from '../api.js';
-import { useMe } from '../App.jsx';
 import { useI18n } from '../i18n.jsx';
 import { toast } from '../ui.js';
-import { countdown, useNow } from './Matches.jsx';
 import Comments from '../Comments.jsx';
+import { countdown } from '../time.js';
 
-export default function MatchPage() {
-  const { id } = useParams();
-  const { refresh } = useMe();
+// Everything about a match on one big card: info, your prediction, players, comments.
+export default function MatchCard({ m, now, onChange }) {
   const { t, lang, locale } = useI18n();
-  const [m, setM] = useState(null);
-  const [error, setError] = useState('');
-  const now = useNow(1000);
-
-  const load = () =>
-    api
-      .get(`/api/matches/${id}`)
-      .then(setM)
-      .catch((e) => setError(e.message));
-  useEffect(() => {
-    load();
-  }, [id]);
-
-  if (error) return <div className="error">{error}</div>;
-  if (!m) return <div className="loading">⚽</div>;
-
   const open = m.status === 'open' && Date.parse(m.kickoff) > now;
   const cd = countdown(m.kickoff, now, lang);
 
   return (
-    <div className="stack-lg">
-      <Link to="/" className="small">{t('match.back')}</Link>
-      <div className="card match-hero">
-        <div className="match-meta">
-          <span>{m.tournament || t('match.default')}</span>
-          <span>{fmtDate(m.kickoff, locale)}</span>
+    <article id={`match-${m.id}`} className={'card match-card status-' + m.status}>
+      <div className="match-meta">
+        <span>{m.tournament || t('match.default')}</span>
+        <span>{fmtDate(m.kickoff, locale)}</span>
+      </div>
+      <div className="teams big">
+        <span className="team">{m.home}</span>
+        <span className="score">
+          {m.status === 'finished' ? `${m.homeScore}:${m.awayScore}` : m.status === 'cancelled' ? '✖' : 'vs'}
+        </span>
+        <span className="team">{m.away}</span>
+      </div>
+      <div className="hero-stats">
+        <div><b>{pts(m.stake)}</b><span>{t('match.stake')}</span></div>
+        <div><b>{m.participants}</b><span>{t('match.participants')}</span></div>
+        <div>
+          <b>{pts(m.pot)}</b>
+          <span>{m.bonus > 0 ? t('match.potWithBonus', { bonus: pts(m.bonus) }) : t('match.pot')}</span>
         </div>
-        <div className="teams big">
-          <span className="team">{m.home}</span>
-          <span className="score">
-            {m.status === 'finished' ? `${m.homeScore}:${m.awayScore}` : m.status === 'cancelled' ? '✖' : 'vs'}
+        <div>
+          <b className={!open && m.status === 'open' ? 'live' : ''}>
+            {m.status === 'cancelled' ? '—' : open ? cd : m.status === 'finished' ? '🏁' : '●'}
+          </b>
+          <span>
+            {m.status === 'cancelled'
+              ? t('match.cancelled')
+              : open
+                ? t('match.toKickoff')
+                : m.status === 'finished'
+                  ? t('match.finished')
+                  : t('match.inPlay')}
           </span>
-          <span className="team">{m.away}</span>
-        </div>
-        <div className="hero-stats">
-          <div><b>{pts(m.stake)}</b><span>{t('match.stake')}</span></div>
-          <div><b>{m.participants}</b><span>{t('match.participants')}</span></div>
-          <div>
-            <b>{pts(m.pot)}</b>
-            <span>{m.bonus > 0 ? t('match.potWithBonus', { bonus: pts(m.bonus) }) : t('match.pot')}</span>
-          </div>
-          <div>
-            <b>{m.status === 'cancelled' ? '—' : open ? cd : m.status === 'finished' ? '🏁' : '🔴'}</b>
-            <span>
-              {m.status === 'cancelled'
-                ? t('match.cancelled')
-                : open
-                  ? t('match.toKickoff')
-                  : m.status === 'finished'
-                    ? t('match.finished')
-                    : t('match.inPlay')}
-            </span>
-          </div>
         </div>
       </div>
 
-      {open && <PredictForm m={m} onDone={() => { load(); refresh(); }} />}
-      {!open && m.my && m.status === 'finished' && <MyResult my={m.my} />}
+      {open && <PredictForm m={m} onDone={onChange} />}
+      {m.my && m.status === 'finished' && <MyResult my={m.my} />}
 
-      <section>
-        <h2>{t('match.people')}</h2>
+      <div className="people-block">
+        <h3>{t('match.people')}</h3>
         {!m.locked && m.participants > 0 && <p className="muted small">{t('match.hiddenNote')}</p>}
-        {m.people.length === 0 ? <p className="muted">{t('match.nobody')}</p> : <ParticipantList list={m.people} m={m} />}
-      </section>
+        {m.people.length === 0 ? <p className="muted small">{t('match.nobody')}</p> : <ParticipantList list={m.people} m={m} />}
+      </div>
 
-      <section className="card">
-        <Comments matchId={m.id} count={m.comments} defaultOpen />
-      </section>
-    </div>
+      <Comments matchId={m.id} count={m.comments} />
+    </article>
   );
 }
 
@@ -89,6 +67,7 @@ function PredictForm({ m, onDone }) {
   const [away, setAway] = useState(m.my?.away ?? 0);
   const [error, setError] = useState('');
   const [busy, setBusy] = useState(false);
+  const changed = !m.my || Number(home) !== m.my.home || Number(away) !== m.my.away;
 
   const save = async (e) => {
     e.preventDefault();
@@ -117,20 +96,20 @@ function PredictForm({ m, onDone }) {
   };
 
   return (
-    <form className="card predict" onSubmit={save}>
-      <h2>{m.my ? t('predict.titleEdit') : t('predict.title')}</h2>
+    <form className="predict" onSubmit={save}>
+      <div className="predict-label">{m.my ? t('predict.titleEdit') : t('predict.title')}</div>
       <div className="predict-row">
-        <span className="team">{m.home}</span>
         <ScoreInput value={home} onChange={setHome} />
         <span className="colon">:</span>
         <ScoreInput value={away} onChange={setAway} />
-        <span className="team">{m.away}</span>
       </div>
       {error && <div className="error">{error}</div>}
       <div className="row center">
-        <button className="btn primary" disabled={busy}>
-          {m.my ? t('predict.update') : t('predict.place', { stake: pts(m.stake) })}
-        </button>
+        {(changed || !m.my) && (
+          <button className="btn primary" disabled={busy}>
+            {m.my ? t('predict.update') : t('predict.place', { stake: pts(m.stake) })}
+          </button>
+        )}
         {m.my && (
           <button type="button" className="btn ghost" onClick={withdraw}>{t('predict.withdraw')}</button>
         )}
@@ -143,16 +122,17 @@ function ScoreInput({ value, onChange }) {
   const v = Number(value) || 0;
   return (
     <div className="score-input">
-      <button type="button" onClick={() => onChange(Math.min(99, v + 1))} aria-label="+">+</button>
+      <button type="button" onClick={() => onChange(Math.max(0, v - 1))} aria-label="−">−</button>
       <input
         type="number"
         min="0"
         max="99"
         inputMode="numeric"
         value={value}
+        onFocus={(e) => e.target.select()}
         onChange={(e) => onChange(e.target.value === '' ? '' : Math.max(0, Math.min(99, parseInt(e.target.value, 10) || 0)))}
       />
-      <button type="button" onClick={() => onChange(Math.max(0, v - 1))} aria-label="−">−</button>
+      <button type="button" onClick={() => onChange(Math.min(99, v + 1))} aria-label="+">+</button>
     </div>
   );
 }
@@ -161,13 +141,13 @@ function MyResult({ my }) {
   const { t } = useI18n();
   const score = `${my.home}:${my.away}`;
   return (
-    <div className={'card my-result ' + (my.payout > 0 ? 'won' : 'lost')}>
-      <div className="big-emoji">{my.payout > 0 ? TIER_EMOJI[my.tier] || '💰' : '💸'}</div>
-      <div>
+    <div className={'my-result ' + (my.payout > 0 ? 'won' : 'lost')}>
+      <span className="big-emoji">{my.payout > 0 ? TIER_EMOJI[my.tier] || '💰' : '💸'}</span>
+      <span>
         {my.payout > 0
           ? t('result.won', { label: t('tier.' + my.tier), score, payout: pts(my.payout) })
           : t('result.lost', { score })}
-      </div>
+      </span>
     </div>
   );
 }

@@ -445,15 +445,8 @@ export const QUOTES = {
 const DICTS = { uk, en };
 const LangContext = createContext(null);
 
-function initialLang() {
-  try {
-    const saved = localStorage.getItem('lang');
-    if (saved === 'uk' || saved === 'en') return saved;
-  } catch {}
-  return 'uk';
-}
-
-export let currentLang = initialLang();
+// Ukrainian only for now; English strings are kept for later.
+export let currentLang = 'uk';
 
 export function LangProvider({ children }) {
   const [lang, setLangState] = useState(currentLang);

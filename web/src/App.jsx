@@ -1,10 +1,9 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
+import { Link, NavLink, Navigate, Route, Routes, useLocation, useParams } from 'react-router-dom';
 import { api, signedPts } from './api.js';
 import { QUOTES, useI18n } from './i18n.jsx';
 import Auth from './pages/Auth.jsx';
 import Matches from './pages/Matches.jsx';
-import MatchPage from './pages/MatchPage.jsx';
 import History from './pages/History.jsx';
 import Rules from './pages/Rules.jsx';
 import Admin from './pages/Admin.jsx';
@@ -51,7 +50,7 @@ export default function App() {
         ) : me.user ? (
           <Routes>
             <Route path="/" element={<Matches />} />
-            <Route path="/match/:id" element={<MatchPage />} />
+            <Route path="/match/:id" element={<MatchRedirect />} />
             <Route path="/leaderboard" element={<Navigate to="/" />} />
             <Route path="/history" element={<History />} />
             <Route path="/rules" element={<Rules />} />
@@ -71,17 +70,10 @@ export default function App() {
   );
 }
 
-function LangSwitch() {
-  const { lang, setLang } = useI18n();
-  return (
-    <div className="lang-switch" role="group" aria-label="Language">
-      {['uk', 'en'].map((l) => (
-        <button key={l} className={lang === l ? 'active' : ''} onClick={() => setLang(l)}>
-          {l === 'uk' ? 'UA' : 'EN'}
-        </button>
-      ))}
-    </div>
-  );
+// Old match links point to the card on the home page.
+function MatchRedirect() {
+  const { id } = useParams();
+  return <Navigate to={`/#match-${id}`} replace />;
 }
 
 function Header() {
@@ -106,7 +98,6 @@ function Header() {
               💰 {signedPts(user.balance)}
             </span>
           )}
-          <LangSwitch />
         </div>
       </div>
       {user?.approved && (

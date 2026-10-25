@@ -191,52 +191,44 @@ app.post(
 
 // ---------- matches & predictions ----------
 
+// Full match view for a user: before kickoff others' predictions are hidden —
+// everyone sees WHO is in, but not WHAT they predicted.
+function matchView(m, u) {
+  const locked = isLocked(m);
+  const preds = db
+    .prepare(
+      `SELECT p.user_id, u.username, p.home, p.away, p.tier, p.payout
+       FROM predictions p JOIN users u ON u.id = p.user_id
+       WHERE p.match_id = ? ORDER BY p.created_at`
+    )
+    .all(m.id);
+  const people = preds.map((p) =>
+    locked || p.user_id === u.id
+      ? { username: p.username, home: p.home, away: p.away, tier: p.tier, payout: p.payout, me: p.user_id === u.id }
+      : { username: p.username, hidden: true, me: false }
+  );
+  const my = preds.find((p) => p.user_id === u.id);
+  return {
+    ...publicMatch(m),
+    people,
+    my: my ? { home: my.home, away: my.away, tier: my.tier, payout: my.payout } : null,
+  };
+}
+
 app.get(
   '/api/matches',
   wrap((req) => {
     const u = requireUser(req);
-    const mine = new Map(
-      db
-        .prepare('SELECT match_id, home, away, payout, tier FROM predictions WHERE user_id = ?')
-        .all(u.id)
-        .map((p) => [p.match_id, p])
-    );
     return db
       .prepare('SELECT * FROM matches ORDER BY kickoff ASC')
       .all()
-      .map((m) => {
-        const p = mine.get(m.id);
-        return { ...publicMatch(m), my: p ? { home: p.home, away: p.away, payout: p.payout, tier: p.tier } : null };
-      });
+      .map((m) => matchView(m, u));
   })
 );
 
 app.get(
   '/api/matches/:id',
-  wrap((req) => {
-    const u = requireUser(req);
-    const m = getMatch(req.params.id);
-    const locked = isLocked(m);
-    const preds = db
-      .prepare(
-        `SELECT p.user_id, u.username, p.home, p.away, p.tier, p.payout, p.created_at
-         FROM predictions p JOIN users u ON u.id = p.user_id
-         WHERE p.match_id = ? ORDER BY p.created_at`
-      )
-      .all(m.id);
-    // Before kickoff others can see WHO is in, but not WHAT they predicted.
-    const people = preds.map((p) =>
-      locked || p.user_id === u.id
-        ? { username: p.username, home: p.home, away: p.away, tier: p.tier, payout: p.payout, me: p.user_id === u.id }
-        : { username: p.username, hidden: true, me: false }
-    );
-    const my = preds.find((p) => p.user_id === u.id);
-    return {
-      ...publicMatch(m),
-      people,
-      my: my ? { home: my.home, away: my.away, tier: my.tier, payout: my.payout } : null,
-    };
-  })
+  wrap((req) => matchView(getMatch(req.params.id), requireUser(req)))
 );
 
 app.post(
