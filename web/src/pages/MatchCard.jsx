@@ -144,7 +144,7 @@ function ParticipantList({ list, m }) {
   const { t } = useI18n();
   const sorted = m.status === 'finished' ? [...list].sort((a, b) => (b.payout || 0) - (a.payout || 0)) : list;
   return (
-    <ul className="people">
+    <ul className={'people' + (m.status === 'finished' ? ' with-payout' : '')}>
       {sorted.map((p) => (
         <li key={p.username} className={p.me ? 'me' : ''}>
           <span className="who">{p.username}{p.me && t('match.me')}</span>
@@ -153,14 +153,18 @@ function ParticipantList({ list, m }) {
           ) : (
             <span className="bet">{p.home}:{p.away}</span>
           )}
-          <span className="payout">
-            {m.status === 'finished' &&
-              (p.payout > 0 ? (
-                <span className="win">+{pts(p.payout)} <span className="tier">{t('tier.' + p.tier)}</span></span>
+          {m.status === 'finished' && (
+            <span className="payout">
+              {p.payout > 0 ? (
+                <>
+                  <span className="tier">{t('tier.' + p.tier)}</span>
+                  <span className="win">+{pts(p.payout)}</span>
+                </>
               ) : (
                 <span className="muted">0</span>
-              ))}
-          </span>
+              )}
+            </span>
+          )}
         </li>
       ))}
     </ul>
