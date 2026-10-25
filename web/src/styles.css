@@ -13,7 +13,6 @@
   --warn: #b35c00;
   --error-bg: #fdecea;
   --error-border: #f3c2bd;
-  --focus-bg: #fffbe6;
   --radius: 3px;
 }
 @media (prefers-color-scheme: dark) {
@@ -30,11 +29,14 @@
     --warn: #ffb347;
     --error-bg: #3a1f1f;
     --error-border: #6b3434;
-    --focus-bg: #2a2a2a;
   }
 }
 
 * { box-sizing: border-box; }
+/* No browser focus rings or tap highlights */
+*:focus, *:focus-visible { outline: none; }
+html { -webkit-tap-highlight-color: transparent; }
+button::-moz-focus-inner { border: 0; }
 body {
   margin: 0;
   font-family: Arial, Helvetica, sans-serif;
@@ -44,7 +46,6 @@ body {
   color: var(--text);
 }
 a { color: var(--green); text-decoration: none; }
-a:hover { text-decoration: underline; }
 h1, h2, h3 { margin: 0 0 6px; }
 h1 { font-size: 1.4rem; }
 h2 { font-size: 1rem; text-transform: uppercase; letter-spacing: 0.02em; padding-bottom: 4px; border-bottom: 2px solid var(--green); }
@@ -58,14 +59,12 @@ main.container { padding-top: 10px; padding-bottom: 24px; min-height: 60vh; }
 .header { background: var(--card); border-bottom: 1px solid var(--border); position: sticky; top: 0; z-index: 10; }
 .header-inner { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 6px; padding-bottom: 2px; }
 .logo { color: var(--text); display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 1.05rem; }
-.logo:hover { text-decoration: none; }
 .ball { font-size: 1.1rem; }
 .wallet { display: flex; gap: 6px; flex-shrink: 0; align-items: center; }
 .balance { border: 1px solid var(--green); color: var(--green); padding: 1px 8px; border-radius: var(--radius); font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .balance.negative { border-color: var(--red); color: var(--red); }
 .nav { display: flex; align-items: center; overflow-x: auto; }
 .nav a, .nav .link { color: var(--muted); padding: 5px 8px; white-space: nowrap; border-bottom: 2px solid transparent; }
-.nav a:hover { color: var(--text); text-decoration: none; }
 .nav a.active { color: var(--green); border-bottom-color: var(--green); font-weight: 700; }
 .nav-spacer { flex: 1; }
 .nav-user { color: var(--muted); white-space: nowrap; padding: 0 4px; }
@@ -99,9 +98,7 @@ main.container { padding-top: 10px; padding-bottom: 24px; min-height: 60vh; }
 }
 .btn:disabled { opacity: 0.6; cursor: wait; }
 .btn.primary { background: var(--green); color: #fff; border-color: var(--green-dark); }
-.btn.primary:hover { background: var(--green-dark); text-decoration: none; }
 .btn.ghost { background: transparent; border-color: var(--border); color: var(--text); }
-.btn.ghost:hover { background: var(--border); }
 .small-btn { padding: 1px 6px; font-size: 0.8rem; }
 input, select {
   font: inherit;
@@ -112,7 +109,6 @@ input, select {
   color: var(--text);
   width: 100%;
 }
-input:focus, select:focus { outline: 1px solid var(--green); outline-offset: -1px; border-color: var(--green); }
 label { display: flex; flex-direction: column; gap: 2px; font-size: 0.85rem; font-weight: 700; }
 label.checkbox { flex-direction: row; align-items: center; gap: 6px; }
 label.checkbox input { width: auto; }
@@ -157,10 +153,9 @@ label.checkbox input { width: auto; }
 .score-input button,
 .score-input input { height: 100%; border: 0; border-radius: 0; margin: 0; background: transparent; color: var(--text); font: inherit; }
 .score-input button { width: 24px; font-size: 0.95rem; line-height: 1; cursor: pointer; color: var(--muted); background: transparent; }
-.score-input button:hover { background: var(--border); color: var(--text); }
 .score-input input { width: 34px; padding: 0; text-align: center; font-size: 1rem; font-weight: 700; border-left: 1px solid var(--border); border-right: 1px solid var(--border); -moz-appearance: textfield; }
-.score-input input:focus { outline: none; background: var(--focus-bg); }
-.score-input:focus-within { border-color: var(--green); }
+.score-input input::selection { background: transparent; }
+.score-input input { caret-color: transparent; }
 .score-input input::-webkit-inner-spin-button,
 .score-input input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 @media (max-width: 560px) {
@@ -195,18 +190,15 @@ label.checkbox input { width: auto; }
 .comments { border-top: 1px dotted var(--border); padding-top: 2px; }
 section.card > .comments { border-top: 0; padding-top: 0; }
 .comments-toggle { background: none; border: 0; padding: 2px 0; font: inherit; font-size: 0.85rem; font-weight: 700; color: var(--green); cursor: pointer; }
-.comments-toggle:hover { text-decoration: underline; }
 .chev { font-size: 0.75rem; }
 .comments-body { display: flex; flex-direction: column; gap: 4px; margin-top: 2px; }
 .comment { border-left: 3px solid var(--border); padding: 2px 8px; }
 .comment.mine { border-left-color: var(--green); }
 .comment-head { display: flex; gap: 6px; align-items: baseline; font-size: 0.85rem; }
 .comment-head .danger { margin-left: auto; color: var(--muted); }
-.comment-head .danger:hover { color: var(--red); }
 .comment-text { white-space: pre-wrap; overflow-wrap: anywhere; }
 .comment-form { display: flex; gap: 6px; align-items: flex-end; }
 .comment-form textarea { flex: 1; font: inherit; padding: 4px 6px; border: 1px solid var(--border); border-radius: var(--radius); background: var(--card); color: var(--text); resize: vertical; min-height: 30px; }
-.comment-form textarea:focus { outline: 1px solid var(--green); outline-offset: -1px; }
 
 /* ---------- tables ---------- */
 .table-wrap { padding: 0; overflow-x: auto; }
@@ -226,7 +218,6 @@ section.card > .comments { border-top: 0; padding-top: 0; }
 .subnav { display: flex; gap: 4px; border-bottom: 1px solid var(--border); }
 .subnav a { padding: 4px 10px; border: 1px solid var(--border); border-bottom: 0; border-radius: var(--radius) var(--radius) 0 0; color: var(--text); background: transparent; }
 .subnav a.active { color: var(--green); font-weight: 700; border-bottom: 2px solid var(--green); }
-.subnav a:hover { text-decoration: none; }
 .admin-row { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
 .admin-actions { display: flex; flex-direction: column; gap: 4px; align-items: flex-end; }
 .score-mini { width: 48px; text-align: center; }
@@ -249,7 +240,6 @@ section.card > .comments { border-top: 0; padding-top: 0; }
 .prose .table { margin-bottom: 8px; border: 1px solid var(--border); }
 .notfound { padding: 20px 10px; }
 .json-input { width: 100%; font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 0.85rem; padding: 6px; border: 1px solid var(--border); border-radius: var(--radius); background: transparent; color: var(--text); resize: vertical; }
-.json-input:focus { outline: 1px solid var(--green); outline-offset: -1px; }
 .import-preview { margin: 4px 0 0; padding-left: 18px; }
 .ai-prompt { border-top: 1px dotted var(--border); padding-top: 6px; }
 .ai-prompt summary { cursor: pointer; font-weight: 700; color: var(--green); }
@@ -278,3 +268,16 @@ section.card > .comments { border-top: 0; padding-top: 0; }
 .toast-out { opacity: 0; }
 
 @keyframes blink { 50% { opacity: 0.4; } }
+
+/* Hover effects only for devices with a real pointer (no sticky hover on phones) */
+@media (hover: hover) {
+  a:hover { text-decoration: underline; }
+  .logo:hover { text-decoration: none; }
+  .nav a:hover { color: var(--text); text-decoration: none; }
+  .btn.primary:hover { background: var(--green-dark); text-decoration: none; }
+  .btn.ghost:hover { background: var(--border); }
+  .score-input button:hover { background: var(--border); color: var(--text); }
+  .comments-toggle:hover { text-decoration: underline; }
+  .comment-head .danger:hover { color: var(--red); }
+  .subnav a:hover { text-decoration: none; }
+}
