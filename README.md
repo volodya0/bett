@@ -1,52 +1,52 @@
-# ⚽ Кумівський тоталізатор
+# ⚽ bett
 
-*Gamble-free betting* — прогнози на футбол для друзів за умовні бали.
-Стек: React + Node.js (Express) + SQLite в одному сервісі.
+*Gamble-free betting* — football score predictions among friends, for virtual points.
+Stack: React + Node.js (Express) + SQLite in a single service. The UI is in Ukrainian.
 
-## Як це працює
+## How it works
 
-- Реєстрація лише за логіном і паролем. Новий гравець отримує стартові бали.
-- Адмін додає матчі. Кожен вписує точний рахунок — це коштує ставку матчу (за замовчуванням 1 бал).
-- До початку матчу видно лише, **хто** в грі; прогнози відкриваються після стартового свистка.
-- Адмін вносить фінальний рахунок, і банк ділиться пропорційно «вазі» прогнозу:
-  точний рахунок (10) ≫ переможець + різниця (4) > лише переможець (2) > помилка на 1 гол (1).
-- Якщо ніхто не вгадав — банк іде в 🎰 джекпот, який забирають ті, хто наступним вгадає точний рахунок
-  (або ставки повертаються — налаштовується).
-- Усе налаштовується в адмінці: ваги, ставки, стартовий баланс, код запрошення, бонуси в банк матчу.
-- Помилились із рахунком? «Відкотити» анулює виплати, і можна внести правильний.
-- **Перший зареєстрований користувач стає адміном** (або вкажіть `ADMIN_USERNAMES=vova,olia`).
+- Sign up with just a username and password. New players get starting points.
+- The admin adds matches. Each player predicts the exact score, which costs the match stake (1 point by default).
+- Before kickoff everyone sees **who** is in, but predictions stay hidden until the opening whistle.
+- The admin enters the final score and the pot is split in proportion to each prediction's weight:
+  exact score (10) ≫ winner + goal difference (4) > winner only (2) > off by one goal (1).
+- If nobody gets anything, the pot goes into a 🎰 jackpot that the next exact-score guessers take
+  (or stakes are refunded — configurable).
+- Everything is configurable in the admin panel: weights, stakes, starting balance, invite code, per-match pot bonuses.
+- Entered a wrong score? "Roll back" voids the payouts so you can enter the correct one.
+- **The first registered user becomes admin** (or set `ADMIN_USERNAMES=vova,olia`).
 
-## Локально
+## Local development
 
-Потрібен Node.js 22.13+.
+Requires Node.js 22.13+.
 
 ```bash
 npm install
-npm run dev        # API на :3000, фронт на http://localhost:5173
-npm test           # тести логіки розподілу
+npm run dev        # API on :3000, frontend on http://localhost:5173
+npm test           # pot-distribution tests
 ```
 
-Продакшн-режим: `npm run build && npm start` → http://localhost:3000
+Production mode: `npm run build && npm start` → http://localhost:3000
 
-## Деплой
+## Deployment
 
-Основний варіант — безкоштовна VM e2-micro у Google Cloud з автодеплоєм через GitHub Actions
-(кожен push у `main` сам оновлює сайт). Покрокова інструкція: **[DEPLOY.md](DEPLOY.md)**.
+The main setup is a free Google Cloud e2-micro VM with auto-deploy via GitHub Actions
+(every push to `main` updates the site). Step-by-step guide: **[DEPLOY.md](DEPLOY.md)**.
 
-Апку можна запустити й на будь-якому хостингу з Docker і постійним диском (Railway, Fly.io, VPS):
+The app also runs on any host with Docker and a persistent disk (Railway, Fly.io, a VPS):
 ```bash
 docker build -t kumbet .
 docker run -d -p 80:3000 -v kumbet-data:/data --restart unless-stopped kumbet
 ```
-Бекап — це копія файлу `/data/kumbet.db`.
+To back up, copy `/data/kumbet.db`.
 
-### Змінні середовища (необовʼязкові)
-| Змінна | Що робить |
+### Environment variables (optional)
+| Variable | Purpose |
 |---|---|
-| `PORT` | порт (за замовч. 3000) |
-| `DATA_DIR` | де лежить база (у Docker — `/data`) |
-| `ADMIN_USERNAMES` | логіни, які стають адмінами при реєстрації |
-| `SESSION_SECRET` | секрет сесій (якщо не задано — згенерується й збережеться в `DATA_DIR`) |
+| `PORT` | port (default 3000) |
+| `DATA_DIR` | database directory (`/data` in Docker) |
+| `ADMIN_USERNAMES` | usernames that become admins on sign-up |
+| `SESSION_SECRET` | session secret (if unset, generated and stored in `DATA_DIR`) |
 
-## 🥚 Пасхалки
-Не скажемо. Ну добре, одна: ↑↑↓↓←→←→BA.
+## 🥚 Easter eggs
+Not telling. Okay, one: ↑↑↓↓←→←→BA.

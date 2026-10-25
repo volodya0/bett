@@ -21,7 +21,7 @@ export const api = {
   del: (url) => request('DELETE', url, {}),
 };
 
-// Бали зберігаються в сотих: 150 -> "1.5"
+// Points are stored in hundredths: 150 -> "1.5"
 export const pts = (cents) => {
   const v = (cents || 0) / 100;
   return Number.isInteger(v) ? String(v) : v.toFixed(2).replace(/0$/, '');

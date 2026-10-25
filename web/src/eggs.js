@@ -1,4 +1,4 @@
-// 🥚 Пасхалки. Тсс, нікому не кажіть.
+// 🥚 Easter eggs. Shh, don't tell anyone.
 
 export function toast(text, ms = 3500) {
   const el = document.createElement('div');
@@ -9,7 +9,7 @@ export function toast(text, ms = 3500) {
   setTimeout(() => el.remove(), ms);
 }
 
-// Дощ з емодзі (м'ячі, конфеті тощо).
+// Emoji rain (balls, confetti, etc.).
 export function rain(symbols = ['⚽'], count = 40) {
   for (let i = 0; i < count; i++) {
     const el = document.createElement('div');
@@ -65,7 +65,7 @@ export function installGlobalEggs() {
   return () => window.removeEventListener('keydown', onKey);
 }
 
-// Реакція на прогноз — щоб було весело ставити.
+// Fun reactions to predictions.
 export function predictionQuip(h, a) {
   if (h === 0 && a === 0) return 'Ставка 0:0 прийнята. Не засніть на матчі 😴';
   if ((h === 7 && a === 1) || (h === 1 && a === 7)) return 'Мінейрасо?! Сміливо. Бразилія досі плаче 🇧🇷😭';

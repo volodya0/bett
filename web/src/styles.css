@@ -42,7 +42,7 @@ h3 { font-size: 1rem; margin-top: 0.4rem; }
 main.container { padding-top: 20px; padding-bottom: 40px; min-height: 60vh; }
 .loading { text-align: center; font-size: 40px; padding: 60px 0; animation: bounce 0.8s infinite alternate; }
 
-/* ---------- header (поле зі смужками) ---------- */
+/* ---------- header (striped pitch) ---------- */
 .header {
   background: repeating-linear-gradient(90deg, var(--green) 0 60px, #188033 60px 120px);
   color: #fff;
@@ -212,7 +212,7 @@ label.checkbox input { width: auto; }
 .footer { text-align: center; padding-bottom: 30px; }
 .quote { font-style: italic; color: var(--muted); cursor: pointer; max-width: 600px; margin: 0 auto 6px; }
 
-/* ---------- 🥚 пасхалки ---------- */
+/* ---------- 🥚 easter eggs ---------- */
 .toast {
   position: fixed;
   left: 50%;

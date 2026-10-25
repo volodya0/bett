@@ -23,7 +23,7 @@ export default function App() {
     return installGlobalEggs();
   }, [refresh]);
 
-  // Баланс завжди актуальний: оновлюємо при кожному переході та раз на хвилину.
+  // Keep the balance fresh: refresh on every navigation and once a minute.
   const location = useLocation();
   useEffect(() => {
     refresh();
@@ -72,7 +72,7 @@ function Header() {
   const clicks = useRef([]);
   const [spin, setSpin] = useState(false);
 
-  // 🥚 Сім кліків по мʼячу за 3 секунди.
+  // 🥚 Seven clicks on the ball within 3 seconds.
   const onLogoClick = (e) => {
     const now = Date.now();
     clicks.current = [...clicks.current.filter((t) => now - t < 3000), now];

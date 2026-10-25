@@ -21,7 +21,7 @@ export default function MatchPage() {
     load();
   }, [id]);
 
-  // 🎉 Конфеті, якщо вгадав точний рахунок.
+  // 🎉 Confetti for an exact-score hit.
   useEffect(() => {
     if (m?.my?.tier === 'exact') confetti();
   }, [m?.my?.tier]);

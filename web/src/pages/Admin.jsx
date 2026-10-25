@@ -21,7 +21,7 @@ export default function Admin() {
   );
 }
 
-// datetime-local працює в локальному часі браузера → перетворюємо в/з ISO.
+// datetime-local uses the browser's local time → convert to/from ISO.
 const toLocalInput = (iso) => {
   const d = new Date(iso);
   d.setMinutes(d.getMinutes() - d.getTimezoneOffset());
@@ -40,7 +40,7 @@ const run = async (fn, okMsg) => {
   }
 };
 
-// ---------------- Матчі ----------------
+// ---------------- Matches ----------------
 
 function AdminMatches() {
   const { refresh } = useMe();
@@ -189,7 +189,7 @@ function AdminMatchRow({ m, onEdit, onChange }) {
   );
 }
 
-// ---------------- Гравці ----------------
+// ---------------- Players ----------------
 
 function AdminUsers() {
   const { user: me, refresh } = useMe();
@@ -242,7 +242,7 @@ function AdminUsers() {
   );
 }
 
-// ---------------- Налаштування ----------------
+// ---------------- Settings ----------------
 
 function AdminSettings() {
   const { refresh, jackpot } = useMe();

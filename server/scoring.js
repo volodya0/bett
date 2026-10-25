@@ -1,8 +1,8 @@
-// Чиста логіка розподілу банку — без БД, щоб легко тестувати.
+// Pure pot-distribution logic — no DB, easy to test.
 
 const sign = (n) => Math.sign(n);
 
-// Наскільки прогноз близький до фактичного рахунку.
+// How close a prediction is to the actual score.
 export function tierOf(pred, actual) {
   const { home: ph, away: pa } = pred;
   const { home: h, away: a } = actual;
@@ -25,8 +25,8 @@ export function weightOf(tier, s) {
   return { exact: s.wExact, diff: s.wDiff, outcome: s.wOutcome, near: s.wNear }[tier] || 0;
 }
 
-// Ділить `total` центів пропорційно вагам. Залишок від округлення
-// роздаємо по 1 центу тим, у кого найбільша вага.
+// Splits `total` cents proportionally to weights. Rounding leftovers
+// go 1 cent at a time to the highest weights.
 export function splitProportional(total, weights) {
   const sumW = weights.reduce((a, b) => a + b, 0);
   if (sumW <= 0 || total <= 0) return weights.map(() => 0);
@@ -42,9 +42,9 @@ export function splitProportional(total, weights) {
 }
 
 /**
- * Рахує результат матчу.
+ * Computes the settlement of a match.
  * predictions: [{ id, user_id, home, away }]
- * Повертає { pot, rows: [{id,user_id,tier,payout,refund}], jackpotIn, jackpotOut }
+ * Returns { pot, rows: [{id,user_id,tier,payout,refund}], jackpotIn, jackpotOut }
  */
 export function settle({ predictions, actual, stake, bonus, jackpot, settings }) {
   const pot = stake * predictions.length + bonus;
@@ -70,7 +70,7 @@ export function settle({ predictions, actual, stake, bonus, jackpot, settings })
 
   splitProportional(pot, weights).forEach((p, i) => (rows[i].payout = p));
 
-  // Джекпот забирають лише ті, хто вгадав точний рахунок.
+  // Only exact-score winners take the jackpot.
   let jackpotOut = 0;
   const exactIdx = rows.map((r, i) => (r.tier === 'exact' ? i : -1)).filter((i) => i >= 0);
   if (jackpot > 0 && exactIdx.length) {

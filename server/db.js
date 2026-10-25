@@ -1,5 +1,5 @@
-// SQLite вбудований у Node.js 22+ — жодних окремих серверів БД.
-// Уся база — один файл у DATA_DIR (за замовчуванням ./data/kumbet.db).
+// SQLite is built into Node.js 22+ — no separate database server.
+// The whole database is one file in DATA_DIR (default ./data/kumbet.db).
 import { DatabaseSync } from 'node:sqlite';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -21,15 +21,15 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- Суми скрізь у "центах" (1 бал = 100), щоб не мати проблем з округленням.
+-- All amounts are in "cents" (1 point = 100) to avoid rounding issues.
 CREATE TABLE IF NOT EXISTS matches (
   id INTEGER PRIMARY KEY,
   home TEXT NOT NULL,
   away TEXT NOT NULL,
   tournament TEXT NOT NULL DEFAULT '',
-  kickoff TEXT NOT NULL,              -- ISO-рядок у UTC
-  stake INTEGER NOT NULL,             -- ставка з кожного учасника
-  bonus INTEGER NOT NULL DEFAULT 0,   -- бонус від адміна в банк матчу
+  kickoff TEXT NOT NULL,              -- ISO string, UTC
+  stake INTEGER NOT NULL,             -- stake per participant
+  bonus INTEGER NOT NULL DEFAULT 0,   -- admin bonus added to the match pot
   status TEXT NOT NULL DEFAULT 'open', -- open | finished | cancelled
   home_score INTEGER,
   away_score INTEGER,
@@ -49,7 +49,7 @@ CREATE TABLE IF NOT EXISTS predictions (
   UNIQUE (match_id, user_id)
 );
 
--- Журнал операцій: баланс = сума всіх записів користувача.
+-- Ledger: a user's balance is the sum of their rows.
 -- kind: start | stake | payout | refund | jackpot | admin
 CREATE TABLE IF NOT EXISTS transactions (
   id INTEGER PRIMARY KEY,
@@ -61,7 +61,7 @@ CREATE TABLE IF NOT EXISTS transactions (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- Джекпот: банки матчів, де ніхто нічого не вгадав.
+-- Jackpot: pots of matches where nobody scored anything.
 CREATE TABLE IF NOT EXISTS jackpot (
   id INTEGER PRIMARY KEY,
   amount INTEGER NOT NULL,
@@ -78,15 +78,15 @@ CREATE TABLE IF NOT EXISTS settings (
 
 export const DEFAULT_SETTINGS = {
   siteName: 'Кумівський тоталізатор',
-  startingBalance: 10,   // бали при реєстрації
-  defaultStake: 1,       // ставка за замовчуванням для нового матчу
-  wExact: 10,            // вага за точний рахунок
-  wDiff: 4,              // вгадав переможця і різницю (2:1 vs 3:2, 1:1 vs 2:2)
-  wOutcome: 2,           // вгадав лише результат (П1 / нічия / П2)
-  wNear: 1,              // не вгадав результат, але промахнувся лише на 1 гол
+  startingBalance: 10,   // points granted on sign-up
+  defaultStake: 1,       // default stake for new matches
+  wExact: 10,            // weight for the exact score
+  wDiff: 4,              // right winner and goal difference (2:1 vs 3:2, 1:1 vs 2:2)
+  wOutcome: 2,           // right outcome only (home / draw / away)
+  wNear: 1,              // wrong outcome, but off by a single goal
   noWinnerPolicy: 'jackpot', // jackpot | refund
-  inviteCode: '',        // якщо не порожній — потрібен для реєстрації
-  allowDebt: false,      // чи можна ставити з нульовим балансом
+  inviteCode: '',        // if set, required to register
+  allowDebt: false,      // allow betting with insufficient balance
 };
 
 export function getSettings() {

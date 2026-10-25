@@ -1,79 +1,79 @@
-# 🚀 Деплой на Google Cloud (безкоштовна e2-micro)
+# 🚀 Deploying to Google Cloud (free e2-micro)
 
-Після налаштування кожен `git push` у гілку `main` сам оновлює сайт приблизно за 2–3 хвилини:
-GitHub Actions проганяє тести, збирає Docker-образ, робить бекап бази, копіює образ на VM і перевіряє, що сайт живий.
-Версія (короткий хеш коміту) показується внизу сайту, тож одразу видно, що оновилось.
+Once set up, every `git push` to `main` updates the site automatically in about 2–3 minutes:
+GitHub Actions runs the tests, builds the Docker image, backs up the database, copies the image to the VM and checks that the site is alive.
+The version (short commit hash) is shown in the site footer, so you can see the update landed.
 
-Налаштування роблять один раз, приблизно за 20 хвилин. Усе відбувається в браузері, нічого встановлювати не треба.
+Setup is done once and takes about 20 minutes, all in the browser — nothing to install.
 
 ---
 
-## Крок 1. SSH-ключ для деплою (2 хв)
+## Step 1. Deploy SSH key (2 min)
 
-1. Відкрийте https://console.cloud.google.com і натисніть іконку **Cloud Shell** `>_` угорі праворуч.
-2. Виконайте:
+1. Open https://console.cloud.google.com and click the **Cloud Shell** icon `>_` in the top right.
+2. Run:
    ```bash
    ssh-keygen -t ed25519 -N "" -C deploy -f deploy_key
    cat deploy_key.pub
    ```
-3. Скопіюйте рядок, який вивелось (він закінчується на `deploy`). Це **публічний** ключ, він знадобиться на кроці 2.
+3. Copy the printed line (it ends with `deploy`). This is the **public** key, needed in step 2.
 
-## Крок 2. Віртуальна машина (5 хв)
+## Step 2. Virtual machine (5 min)
 
-1. Якщо Google попросить, створіть проєкт і підключіть білінг (картку). У межах безкоштовного тарифу з неї нічого не списується.
+1. If Google asks, create a project and attach billing (a card). Nothing is charged within the free tier.
 2. **Compute Engine → VM instances → Create instance**:
 
-   | Поле | Значення |
+   | Field | Value |
    |---|---|
    | Name | `kumbet` |
-   | Region | **us-central1**, us-east1 або us-west1 (безкоштовно лише в цих регіонах) |
+   | Region | **us-central1**, us-east1 or us-west1 (only these are free) |
    | Machine type | **e2-micro** |
-   | Boot disk → Change | Debian 12, тип **Standard persistent disk**, 30 GB (⚠️ не «Balanced», бо він платний) |
+   | Boot disk → Change | Debian 12, type **Standard persistent disk**, 30 GB (⚠️ not "Balanced" — that one is paid) |
    | Firewall | ✅ Allow HTTP traffic, ✅ Allow HTTPS traffic |
-   | Security → Manage access → Add item (SSH keys) | вставте публічний ключ із кроку 1 |
+   | Security → Manage access → Add item (SSH keys) | paste the public key from step 1 |
 
-3. **Create**. Скопіюйте **External IP**, наприклад `34.123.45.67`.
-4. Радимо зафіксувати IP, щоб він не змінився після перезапуску VM:
-   **VPC network → IP addresses** → біля адреси VM натисніть **Promote to static**.
+3. Click **Create**. Copy the **External IP**, e.g. `34.123.45.67`.
+4. Recommended: make the IP static so it doesn't change after a VM restart:
+   **VPC network → IP addresses** → next to the VM's address, click **Promote to static**.
 
-> 💡 Поставте ліміт витрат: **Billing → Budgets & alerts → Create budget**, $1. Якщо щось почне коштувати гроші (наприклад, Google змінить умови для зовнішнього IP), вам прийде лист.
+> 💡 Set a spending limit: **Billing → Budgets & alerts → Create budget**, $1. If anything starts costing money (e.g. Google changes the terms for external IPs), you'll get an email.
 
-## Крок 3. Секрети в GitHub (3 хв)
+## Step 3. GitHub secrets (3 min)
 
-Репозиторій → **Settings → Secrets and variables → Actions → New repository secret**:
+Repository → **Settings → Secrets and variables → Actions → New repository secret**:
 
-| Секрет | Значення |
+| Secret | Value |
 |---|---|
-| `VM_HOST` | External IP з кроку 2 |
-| `VM_SSH_KEY` | **приватний** ключ: у Cloud Shell виконайте `cat deploy_key` і скопіюйте все, разом із рядками `-----BEGIN…` і `-----END…` |
-| `ADMIN_USERNAMES` | *(необовʼязково)* ваш логін, наприклад `vova` |
-| `DOMAIN` | *(необовʼязково)* власний домен, якщо є. Без нього адреса буде `34-123-45-67.sslip.io` |
+| `VM_HOST` | External IP from step 2 |
+| `VM_SSH_KEY` | the **private** key: run `cat deploy_key` in Cloud Shell and copy everything, including the `-----BEGIN…` and `-----END…` lines |
+| `ADMIN_USERNAMES` | *(optional)* your username, e.g. `vova` |
+| `DOMAIN` | *(optional)* your own domain, if you have one. Otherwise the address is `34-123-45-67.sslip.io` |
 
-Після цього видаліть ключі з Cloud Shell: `rm deploy_key deploy_key.pub`.
+Then delete the keys from Cloud Shell: `rm deploy_key deploy_key.pub`.
 
-## Крок 4. Перший деплой
+## Step 4. First deploy
 
-Зробіть push у `main` або відкрийте **Actions → Deploy → Run workflow**.
-Перший запуск триває довше (~5 хв), бо на VM ставиться Docker. У кінці в Actions зʼявиться посилання на сайт.
+Push to `main`, or open **Actions → Deploy → Run workflow**.
+The first run takes longer (~5 min) because Docker gets installed on the VM. At the end, Actions shows a link to the site.
 
-Відкрийте сайт і **зареєструйтеся першим**: перший користувач стає адміном.
+Open the site and **register first**: the first user becomes admin.
 
 ---
 
-## Щоденна робота
+## Day-to-day
 
-| Що треба | Як |
+| Task | How |
 |---|---|
-| Оновити сайт | `git push` у `main` і ~2–3 хв почекати |
-| Подивитись, як іде деплой | вкладка **Actions** у GitHub |
-| Передеплоїти без змін | Actions → Deploy → **Run workflow** |
-| Відкотитись на стару версію | `git revert <коміт>` і push |
-| Логи апки | Compute Engine → кнопка **SSH** біля VM → `cd /opt/kumbet && docker compose logs -f app` |
-| Бекапи | `/opt/kumbet/backups/`: щодня о 04:17 і перед кожним деплоєм, зберігаються 30 днів |
-| Скачати бекап | у вікні SSH: шестерня ⚙️ → **Download file** → `/opt/kumbet/backups/…` |
+| Update the site | `git push` to `main`, wait ~2–3 min |
+| Watch a deploy | the **Actions** tab on GitHub |
+| Redeploy without changes | Actions → Deploy → **Run workflow** |
+| Roll back to an older version | `git revert <commit>` and push |
+| App logs | Compute Engine → **SSH** button next to the VM → `cd /opt/kumbet && docker compose logs -f app` |
+| Backups | `/opt/kumbet/backups/`: daily at 04:17 and before every deploy, kept for 30 days |
+| Download a backup | in the SSH window: gear ⚙️ → **Download file** → `/opt/kumbet/backups/…` |
 
-## Якщо щось не так
+## Troubleshooting
 
-- **Деплой упав на SSH**: перевірте `VM_HOST` і `VM_SSH_KEY`; ключ має бути вставлений повністю.
-- **Сайт не відкривається по HTTPS**: перевірте, що при створенні VM стоять галочки HTTP/HTTPS. Подивіться логи: `docker compose logs caddy`.
-- **sslip.io не видає сертифікат** (буває через ліміти Let's Encrypt): візьміть безкоштовний домен на https://www.duckdns.org, спрямуйте його на IP VM і додайте секрет `DOMAIN`.
+- **Deploy fails at SSH**: check `VM_HOST` and `VM_SSH_KEY`; the key must be pasted in full.
+- **Site doesn't open over HTTPS**: make sure the HTTP/HTTPS boxes were ticked when creating the VM. Check the logs: `docker compose logs caddy`.
+- **sslip.io fails to get a certificate** (can happen due to Let's Encrypt limits): get a free domain at https://www.duckdns.org, point it at the VM's IP and add the `DOMAIN` secret.

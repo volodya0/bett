@@ -1,4 +1,4 @@
-# Кожен push у main: тести → (якщо сервер налаштований) збірка Docker-образу → копіювання на VM → перезапуск → перевірка.
+# Every push to main: tests → (if the server is configured) build Docker image → copy to VM → restart → health check.
 name: Deploy
 
 on:
@@ -23,10 +23,10 @@ jobs:
           node-version: 22
           cache: npm
 
-      - name: Тести
+      - name: Tests
         run: npm ci && npm test
 
-      - name: Чи налаштований сервер
+      - name: Check server config
         id: check
         env:
           VM_HOST: ${{ secrets.VM_HOST }}
@@ -36,7 +36,7 @@ jobs:
             echo "ready=true" >> "$GITHUB_OUTPUT"
           else
             echo "ready=false" >> "$GITHUB_OUTPUT"
-            echo "### ⏭️ Деплой пропущено: секрети VM_HOST і VM_SSH_KEY ще не додані (див. DEPLOY.md)" >> "$GITHUB_STEP_SUMMARY"
+            echo "### ⏭️ Deploy skipped: VM_HOST and VM_SSH_KEY secrets are not set (see DEPLOY.md)" >> "$GITHUB_STEP_SUMMARY"
           fi
 
   deploy:
@@ -50,17 +50,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Адреса сайту
+      - name: Site address
         run: |
           DOMAIN="${{ secrets.DOMAIN }}"
-          # Без власного домену використовуємо безкоштовний sslip.io: 34.1.2.3 → 34-1-2-3.sslip.io
+          # Without a custom domain, fall back to free sslip.io: 34.1.2.3 → 34-1-2-3.sslip.io
           [ -z "$DOMAIN" ] && DOMAIN="${VM_HOST//./-}.sslip.io"
           echo "DOMAIN=$DOMAIN" >> "$GITHUB_ENV"
           echo "VERSION=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
 
       - uses: docker/setup-buildx-action@v3
 
-      - name: Збірка образу
+      - name: Build image
         uses: docker/build-push-action@v6
         with:
           context: .
@@ -70,19 +70,19 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: SSH-ключ
+      - name: SSH key
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_ed25519
           chmod 600 ~/.ssh/id_ed25519
           ssh-keyscan -H "$VM_HOST" >> ~/.ssh/known_hosts 2>/dev/null
 
-      - name: Налаштування VM (лише перший раз)
+      - name: Bootstrap VM (first run only)
         run: |
           scp deploy/bootstrap.sh "$VM_USER@$VM_HOST:/tmp/bootstrap.sh"
           ssh "$VM_USER@$VM_HOST" "sudo bash /tmp/bootstrap.sh $VM_USER"
 
-      - name: Деплой
+      - name: Deploy
         run: |
           gzip -1 /tmp/kumbet.tar
           scp /tmp/kumbet.tar.gz deploy/docker-compose.yml deploy/Caddyfile deploy/backup.sh "$VM_USER@$VM_HOST:/opt/kumbet/"
@@ -98,16 +98,16 @@ jobs:
             docker image prune -f >/dev/null
           EOF
 
-      - name: Перевірка, що сайт живий
+      - name: Health check
         run: |
           for i in $(seq 1 30); do
             if curl -fsS "https://$DOMAIN/api/health" | grep -q "\"$VERSION\""; then
-              echo "✅ Версія $VERSION працює: https://$DOMAIN"
-              echo "### ✅ Задеплоєно $VERSION → https://$DOMAIN" >> "$GITHUB_STEP_SUMMARY"
+              echo "✅ Version $VERSION is live: https://$DOMAIN"
+              echo "### ✅ Deployed $VERSION → https://$DOMAIN" >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
             sleep 5
           done
-          echo "❌ Сайт не відповідає. Останні логи:"
+          echo "❌ Site is not responding. Recent logs:"
           ssh "$VM_USER@$VM_HOST" "cd /opt/kumbet && docker compose logs --tail=80"
           exit 1

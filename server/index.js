@@ -16,8 +16,8 @@ const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '')
   .map((s) => s.trim().toLowerCase())
   .filter(Boolean);
 
-// Секрет сесій: зі змінної середовища або згенерований і збережений поруч із БД,
-// щоб після перезапуску нікого не розлогінювало.
+// Session secret: from env, or generated once and stored next to the DB
+// so restarts don't log everyone out.
 function sessionSecret() {
   if (process.env.SESSION_SECRET) return process.env.SESSION_SECRET;
   const file = path.join(process.env.DATA_DIR || path.resolve('data'), '.session-secret');
@@ -38,7 +38,7 @@ app.use(
   })
 );
 
-// Захист від CSRF: змінювати дані можна лише JSON-запитами (крос-сайтова форма так не вміє).
+// CSRF protection: mutations only via JSON requests (a cross-site form can't send those).
 app.use('/api', (req, res, next) => {
   if (req.method !== 'GET' && !req.is('application/json')) {
     return res.status(415).json({ error: 'Очікується JSON' });
@@ -115,7 +115,7 @@ function publicMatch(m) {
   };
 }
 
-// Для перевірки після деплою.
+// Used by the post-deploy health check.
 app.get('/api/health', (req, res) => {
   db.prepare('SELECT 1').get();
   res.json({ ok: true, version: VERSION });
@@ -224,7 +224,7 @@ app.get(
          WHERE p.match_id = ? ORDER BY p.created_at`
       )
       .all(m.id);
-    // До початку матчу видно лише ХТО в грі, але не ЩО поставили.
+    // Before kickoff others can see WHO is in, but not WHAT they predicted.
     const people = preds.map((p) =>
       locked || p.user_id === u.id
         ? { username: p.username, home: p.home, away: p.away, tier: p.tier, payout: p.payout, me: p.user_id === u.id }
@@ -438,7 +438,7 @@ app.delete(
   })
 );
 
-// Внести рахунок і розподілити банк.
+// Record the final score and distribute the pot.
 app.post(
   '/api/admin/matches/:id/result',
   wrap((req) => {
@@ -473,7 +473,7 @@ app.post(
   })
 );
 
-// Скасувати матч — усім повертаються ставки.
+// Cancel a match — all stakes are refunded.
 app.post(
   '/api/admin/matches/:id/cancel',
   wrap((req) => {
@@ -490,7 +490,7 @@ app.post(
   })
 );
 
-// Відкотити результат/скасування (якщо помилились з рахунком).
+// Roll back a result/cancellation (e.g. wrong score entered).
 app.post(
   '/api/admin/matches/:id/reopen',
   wrap((req) => {
