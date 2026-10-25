@@ -205,6 +205,10 @@ section.card > .comments { border-top: 0; padding-top: 0; }
 @media (max-width: 560px) { .hide-sm { display: none; } }
 
 
+.history { list-style: none; margin: 0; padding: 0; }
+.history li { display: grid; grid-template-columns: 28px 1fr auto; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); align-items: center; }
+.history li:last-child { border-bottom: 0; }
+
 /* ---------- admin ---------- */
 .subnav { display: flex; gap: 6px; }
 .subnav a { padding: 6px 14px; border-radius: 999px; border: 1px solid var(--border); color: var(--text); }

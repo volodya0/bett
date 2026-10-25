@@ -325,7 +325,7 @@ app.delete(
   })
 );
 
-// ---------- leaderboard, rules ----------
+// ---------- leaderboard, history, rules ----------
 
 app.get(
   '/api/leaderboard',
@@ -341,6 +341,21 @@ app.get(
          FROM users u WHERE u.approved = 1 ORDER BY balance DESC, exact DESC, u.username`
       )
       .all();
+  })
+);
+
+app.get(
+  '/api/history',
+  wrap((req) => {
+    const u = requireUser(req);
+    return db
+      .prepare(
+        `SELECT t.amount, t.kind, t.note, t.match_id AS matchId, t.created_at AS createdAt,
+           m.home, m.away, m.home_score AS homeScore, m.away_score AS awayScore
+         FROM transactions t LEFT JOIN matches m ON m.id = t.match_id
+         WHERE t.user_id = ? ORDER BY t.id DESC`
+      )
+      .all(u.id);
   })
 );
 

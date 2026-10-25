@@ -5,9 +5,13 @@ import { QUOTES, useI18n } from './i18n.jsx';
 import Auth from './pages/Auth.jsx';
 import Matches from './pages/Matches.jsx';
 import MatchPage from './pages/MatchPage.jsx';
+import History from './pages/History.jsx';
 import Rules from './pages/Rules.jsx';
 import Admin from './pages/Admin.jsx';
 import NotFound from './pages/NotFound.jsx';
+
+// Footer quotes are hidden for now; flip to true to bring them back.
+const SHOW_QUOTES = false;
 
 const MeContext = createContext(null);
 export const useMe = () => useContext(MeContext);
@@ -49,6 +53,7 @@ export default function App() {
             <Route path="/" element={<Matches />} />
             <Route path="/match/:id" element={<MatchPage />} />
             <Route path="/leaderboard" element={<Navigate to="/" />} />
+            <Route path="/history" element={<History />} />
             <Route path="/rules" element={<Rules />} />
             <Route path="/admin/*" element={me.user.isAdmin ? <Admin /> : <Navigate to="/" />} />
             <Route path="/login" element={<Navigate to="/" />} />
@@ -107,6 +112,7 @@ function Header() {
       {user?.approved && (
         <nav className="container nav">
           <NavLink to="/" end>{t('nav.matches')}</NavLink>
+          <NavLink to="/history">{t('nav.history')}</NavLink>
           <NavLink to="/rules">{t('nav.rules')}</NavLink>
           {user.isAdmin && (
             <NavLink to="/admin">
@@ -150,9 +156,11 @@ function Footer() {
   const [i, setI] = useState(() => Math.floor(Math.random() * quotes.length));
   return (
     <footer className="footer container">
-      <p className="quote" onClick={() => setI((i + 1) % quotes.length)} title={t('footer.quoteHint')}>
-        {quotes[i % quotes.length]}
-      </p>
+      {SHOW_QUOTES && (
+        <p className="quote" onClick={() => setI((i + 1) % quotes.length)} title={t('footer.quoteHint')}>
+          {quotes[i % quotes.length]}
+        </p>
+      )}
       <p className="muted small">
         {t('footer.note')} · <span>v{version}</span>
       </p>
