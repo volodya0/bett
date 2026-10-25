@@ -11,6 +11,10 @@
   --border: #d4d4d4;
   --red: #c62828;
   --gold: #e3a400;
+  --green-border: #cfe5d6;
+  --error-bg: #fdecea;
+  --error-border: #f3c2bd;
+  --focus-bg: #fffbe6;
   --radius: 3px;
 }
 @media (prefers-color-scheme: dark) {
@@ -18,10 +22,17 @@
     --bg: #141414;
     --card: #1d1d1d;
     --strip: #252525;
-    --text: #e4e4e4;
-    --muted: #9a9a9a;
-    --border: #353535;
+    --text: #ffffff;
+    --muted: #c4c4c4;
+    --border: #ffffff;
+    --green: #4cc26e;
+    --green-dark: #2e9a4f;
     --green-light: #18301f;
+    --green-border: #ffffff;
+    --red: #ff6b6b;
+    --error-bg: #3a1f1f;
+    --error-border: #ffffff;
+    --focus-bg: #2a2a2a;
   }
 }
 
@@ -75,7 +86,7 @@ main.container { padding-top: 10px; padding-bottom: 24px; min-height: 60vh; }
 .win { color: var(--green); font-weight: 700; }
 .lose { color: var(--red); }
 .badge { background: var(--gold); color: #3a2a00; border-radius: 2px; padding: 0 4px; font-size: 0.75rem; font-weight: 700; }
-.error { background: #fdecea; color: var(--red); border: 1px solid #f3c2bd; border-radius: var(--radius); padding: 5px 8px; }
+.error { background: var(--error-bg); color: var(--red); border: 1px solid var(--error-border); border-radius: var(--radius); padding: 5px 8px; }
 
 /* ---------- buttons & inputs ---------- */
 .btn {
@@ -114,7 +125,7 @@ label.checkbox input { width: auto; }
 .match-meta { display: flex; justify-content: space-between; gap: 8px; margin: 0 -10px; padding: 3px 10px; background: var(--strip); border-bottom: 1px solid var(--border); font-size: 0.8rem; color: var(--muted); }
 .teams { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; font-weight: 700; }
 .teams .team:first-child { text-align: right; }
-.teams .score { background: var(--green-light); color: var(--green); border: 1px solid #cfe5d6; border-radius: var(--radius); padding: 0 8px; font-variant-numeric: tabular-nums; min-width: 44px; text-align: center; }
+.teams .score { background: var(--green-light); color: var(--green); border: 1px solid var(--green-border); border-radius: var(--radius); padding: 0 8px; font-variant-numeric: tabular-nums; min-width: 44px; text-align: center; }
 .teams.big { font-size: 1.15rem; margin-top: 4px; }
 .match-status { text-align: center; color: var(--muted); font-size: 0.85rem; margin-top: -4px; }
 .match-status.live { color: var(--red); font-weight: 700; }
@@ -127,7 +138,7 @@ label.checkbox input { width: auto; }
 }
 
 /* ---------- predict form ---------- */
-.predict { background: var(--green-light); border: 1px solid #cfe5d6; border-radius: var(--radius); padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; }
+.predict { background: var(--green-light); border: 1px solid var(--green-border); border-radius: var(--radius); padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; }
 .predict-label { font-weight: 700; font-size: 0.85rem; text-align: center; }
 .predict-row { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 6px 12px; }
 .score-pair { display: flex; align-items: center; gap: 6px; }
@@ -142,7 +153,7 @@ label.checkbox input { width: auto; }
 .score-input button { width: 28px; font-size: 1rem; line-height: 1; cursor: pointer; color: var(--muted); background: var(--strip); }
 .score-input button:hover { background: var(--border); color: var(--text); }
 .score-input input { width: 38px; padding: 0; text-align: center; font-size: 1.1rem; font-weight: 700; border-left: 1px solid var(--border); border-right: 1px solid var(--border); -moz-appearance: textfield; }
-.score-input input:focus { outline: none; background: #fffbe6; }
+.score-input input:focus { outline: none; background: var(--focus-bg); }
 .score-input:focus-within { border-color: var(--green); }
 .score-input input::-webkit-inner-spin-button,
 .score-input input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
@@ -151,7 +162,7 @@ label.checkbox input { width: auto; }
 }
 
 .my-result { border: 1px solid var(--border); border-radius: var(--radius); padding: 4px 8px; background: var(--strip); font-size: 0.9rem; }
-.my-result.won { background: var(--green-light); border-color: #cfe5d6; }
+.my-result.won { background: var(--green-light); border-color: var(--green-border); }
 
 /* Players: plain table-like rows with fixed columns so values line up */
 .people { list-style: none; margin: 0; padding: 0; border: 1px solid var(--border); border-radius: var(--radius); }
