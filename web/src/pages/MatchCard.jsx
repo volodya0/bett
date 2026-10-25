@@ -38,8 +38,7 @@ export default function MatchCard({ m, now, onChange }) {
       {m.my && m.status === 'finished' && <MyResult my={m.my} />}
 
       <div className="people-block">
-        <h3>{t('match.people')}</h3>
-        {!m.locked && m.participants > 0 && <p className="muted small">{t('match.hiddenNote')}</p>}
+        {!m.locked && <p className="muted small">{t('match.hiddenNote')}</p>}
         {m.people.length === 0 ? <p className="muted small">{t('match.nobody')}</p> : <ParticipantList list={m.people} m={m} />}
       </div>
 
