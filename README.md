@@ -5,16 +5,44 @@ Stack: React + Node.js (Express) + SQLite in a single service. The UI is in Ukra
 
 ## How it works
 
-- Sign up with just a username and password. New players get starting points.
-- The admin adds matches. Each player predicts the exact score, which costs the match stake (1 point by default).
+- Sign up with just a username and password. Everyone starts at 0; balances go up and down.
+- Optionally, new sign-ups need admin approval (a checkbox in admin settings).
+- The admin adds matches — via a form or by pasting JSON (see below). Each player predicts the exact score, which costs the match stake (1 point by default).
 - Before kickoff everyone sees **who** is in, but predictions stay hidden until the opening whistle.
-- The admin enters the final score and the pot is split in proportion to each prediction's weight:
+- The admin enters the final score and the whole pot is split in proportion to each prediction's weight:
   exact score (10) ≫ winner + goal difference (4) > winner only (2) > off by one goal (1).
-- If nobody gets anything, the pot goes into a 🎰 jackpot that the next exact-score guessers take
-  (or stakes are refunded — configurable).
-- Everything is configurable in the admin panel: weights, stakes, starting balance, invite code, per-match pot bonuses.
+- If nobody reaches any of those, the closest prediction(s) by total goal error take the whole pot.
+- Every match has a collapsible comment thread.
+- The UI is available in Ukrainian and English (switch in the header).
+- Admin panel: weights, default stake, invite code, approval, per-match pot bonuses, player balance adjustments, full JSON export.
 - Entered a wrong score? "Roll back" voids the payouts so you can enter the correct one.
 - **The first registered user becomes admin** (or set `ADMIN_USERNAMES=vova,olia`).
+
+## Adding matches from JSON
+
+Admin → Matches → "Add from JSON". Paste one object or an array:
+
+```json
+[
+  {
+    "home": "Шахтар",
+    "away": "Динамо Київ",
+    "tournament": "УПЛ, 12 тур",
+    "kickoff": "2026-11-01T17:00:00+02:00",
+    "stake": 1,
+    "bonus": 0
+  }
+]
+```
+
+`home`, `away` and `kickoff` are required; `kickoff` must include a time zone offset (or `Z`).
+`tournament`, `stake` (points, defaults to the admin setting) and `bonus` are optional.
+A match with the same teams and kickoff as an existing one is skipped.
+
+## Data
+
+Everything lives in one SQLite file (`/opt/kumbet/data/kumbet.db` on the server).
+Admin → Settings → "Export JSON" downloads the whole database (no password hashes); amounts are in hundredths of a point.
 
 ## Local development
 
@@ -47,6 +75,3 @@ To back up, copy `/data/kumbet.db`.
 | `DATA_DIR` | database directory (`/data` in Docker) |
 | `ADMIN_USERNAMES` | usernames that become admins on sign-up |
 | `SESSION_SECRET` | session secret (if unset, generated and stored in `DATA_DIR`) |
-
-## 🥚 Easter eggs
-Not telling. Okay, one: ↑↑↓↓←→←→BA.

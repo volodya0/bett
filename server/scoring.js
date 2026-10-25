@@ -1,6 +1,7 @@
 // Pure pot-distribution logic — no DB, easy to test.
 
 const sign = (n) => Math.sign(n);
+const distance = (p, a) => Math.abs(p.home - a.home) + Math.abs(p.away - a.away);
 
 // How close a prediction is to the actual score.
 export function tierOf(pred, actual) {
@@ -10,19 +11,12 @@ export function tierOf(pred, actual) {
   const sameOutcome = sign(ph - pa) === sign(h - a);
   if (sameOutcome && ph - pa === h - a) return 'diff';
   if (sameOutcome) return 'outcome';
-  if (Math.abs(ph - h) + Math.abs(pa - a) <= 1) return 'near';
+  if (distance(pred, actual) <= 1) return 'near';
   return null;
 }
 
-export const TIER_LABELS = {
-  exact: 'Точний рахунок',
-  diff: 'Результат + різниця',
-  outcome: 'Результат',
-  near: 'Майже (±1 гол)',
-};
-
 export function weightOf(tier, s) {
-  return { exact: s.wExact, diff: s.wDiff, outcome: s.wOutcome, near: s.wNear }[tier] || 0;
+  return { exact: s.wExact, diff: s.wDiff, outcome: s.wOutcome, near: s.wNear, closest: 1 }[tier] || 0;
 }
 
 // Splits `total` cents proportionally to weights. Rounding leftovers
@@ -42,41 +36,24 @@ export function splitProportional(total, weights) {
 }
 
 /**
- * Computes the settlement of a match.
+ * Computes the settlement of a match. The whole pot is always paid out:
+ * if no prediction reaches any tier, the closest prediction(s) by total
+ * goal distance share it.
  * predictions: [{ id, user_id, home, away }]
- * Returns { pot, rows: [{id,user_id,tier,payout,refund}], jackpotIn, jackpotOut }
+ * Returns { pot, rows: [{ id, user_id, tier, payout }] }
  */
-export function settle({ predictions, actual, stake, bonus, jackpot, settings }) {
+export function settle({ predictions, actual, stake, bonus, settings }) {
   const pot = stake * predictions.length + bonus;
-  const rows = predictions.map((p) => ({
-    id: p.id,
-    user_id: p.user_id,
-    tier: tierOf(p, actual),
-    payout: 0,
-    refund: 0,
-  }));
+  const rows = predictions.map((p) => ({ id: p.id, user_id: p.user_id, tier: tierOf(p, actual), payout: 0 }));
+  if (!rows.length) return { pot, rows };
+
+  if (!rows.some((r) => weightOf(r.tier, settings) > 0)) {
+    const dists = predictions.map((p) => distance(p, actual));
+    const best = Math.min(...dists);
+    rows.forEach((r, i) => (r.tier = dists[i] === best ? 'closest' : null));
+  }
+
   const weights = rows.map((r) => weightOf(r.tier, settings));
-  const anyWinner = weights.some((w) => w > 0);
-
-  if (!predictions.length) return { pot, rows, jackpotIn: 0, jackpotOut: 0 };
-
-  if (!anyWinner) {
-    if (settings.noWinnerPolicy === 'refund') {
-      rows.forEach((r) => (r.refund = stake));
-      return { pot, rows, jackpotIn: 0, jackpotOut: 0 };
-    }
-    return { pot, rows, jackpotIn: pot, jackpotOut: 0 };
-  }
-
   splitProportional(pot, weights).forEach((p, i) => (rows[i].payout = p));
-
-  // Only exact-score winners take the jackpot.
-  let jackpotOut = 0;
-  const exactIdx = rows.map((r, i) => (r.tier === 'exact' ? i : -1)).filter((i) => i >= 0);
-  if (jackpot > 0 && exactIdx.length) {
-    const shares = splitProportional(jackpot, exactIdx.map(() => 1));
-    exactIdx.forEach((idx, k) => (rows[idx].payout += shares[k]));
-    jackpotOut = jackpot;
-  }
-  return { pot, rows, jackpotIn: 0, jackpotOut };
+  return { pot, rows };
 }

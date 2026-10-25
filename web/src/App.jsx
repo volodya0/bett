@@ -1,7 +1,7 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import { Link, NavLink, Navigate, Route, Routes, useLocation } from 'react-router-dom';
-import { api, pts } from './api.js';
-import { installGlobalEggs, QUOTES, rain, toast } from './eggs.js';
+import { api, signedPts } from './api.js';
+import { QUOTES, useI18n } from './i18n.jsx';
 import Auth from './pages/Auth.jsx';
 import Matches from './pages/Matches.jsx';
 import MatchPage from './pages/MatchPage.jsx';
@@ -15,13 +15,9 @@ const MeContext = createContext(null);
 export const useMe = () => useContext(MeContext);
 
 export default function App() {
+  const { lang } = useI18n();
   const [me, setMe] = useState(null);
   const refresh = useCallback(() => api.get('/api/me').then(setMe).catch(() => setMe({ user: null })), []);
-
-  useEffect(() => {
-    refresh();
-    return installGlobalEggs();
-  }, [refresh]);
 
   // Keep the balance fresh: refresh on every navigation and once a minute.
   const location = useLocation();
@@ -36,6 +32,9 @@ export default function App() {
   useEffect(() => {
     if (me?.siteName) document.title = me.siteName;
   }, [me?.siteName]);
+  useEffect(() => {
+    document.documentElement.lang = lang;
+  }, [lang]);
 
   const ctx = useMemo(() => ({ ...me, refresh }), [me, refresh]);
   if (!me) return <div className="loading">⚽</div>;
@@ -43,8 +42,11 @@ export default function App() {
   return (
     <MeContext.Provider value={ctx}>
       <Header />
-      <main className="container">
-        {me.user ? (
+      {/* key={lang} remounts pages so data-driven texts re-render in the new language */}
+      <main className="container" key={lang}>
+        {me.user && !me.user.approved ? (
+          <Pending />
+        ) : me.user ? (
           <Routes>
             <Route path="/" element={<Matches />} />
             <Route path="/match/:id" element={<MatchPage />} />
@@ -67,80 +69,98 @@ export default function App() {
   );
 }
 
-function Header() {
-  const { user, siteName, jackpot, refresh } = useMe();
-  const clicks = useRef([]);
-  const [spin, setSpin] = useState(false);
+function LangSwitch() {
+  const { lang, setLang } = useI18n();
+  return (
+    <div className="lang-switch" role="group" aria-label="Language">
+      {['uk', 'en'].map((l) => (
+        <button key={l} className={lang === l ? 'active' : ''} onClick={() => setLang(l)}>
+          {l === 'uk' ? 'UA' : 'EN'}
+        </button>
+      ))}
+    </div>
+  );
+}
 
-  // 🥚 Seven clicks on the ball within 3 seconds.
-  const onLogoClick = (e) => {
-    const now = Date.now();
-    clicks.current = [...clicks.current.filter((t) => now - t < 3000), now];
-    if (clicks.current.length >= 7) {
-      e.preventDefault();
-      clicks.current = [];
-      setSpin(true);
-      setTimeout(() => setSpin(false), 1500);
-      toast('7 кліків — як 7:1 Німеччина–Бразилія. Досить знущатись з мʼяча! 🇩🇪');
-    }
-  };
+function Header() {
+  const { user, siteName, pendingCount, refresh } = useMe();
+  const { t } = useI18n();
 
   const logout = async () => {
     await api.post('/api/logout');
     refresh();
   };
 
-  const broke = user && user.balance <= 0;
-
   return (
     <header className="header">
       <div className="container header-inner">
-        <Link to="/" className="logo" onClick={onLogoClick}>
-          <span className={'ball' + (spin ? ' spin' : '')}>⚽</span>
+        <Link to="/" className="logo">
+          <span className="ball">⚽</span>
           <span className="logo-text">{siteName}</span>
         </Link>
-        {user && (
-          <div className="wallet">
-            <span
-              className={'balance' + (broke ? ' broke' : '')}
-              title={broke ? 'Банкрут. Як «Пармa» у 2015-му 🫠' : 'Твій баланс'}
-              onClick={() => broke && toast('Банкрут 🫠 Попроси адміна про трансфер.')}
-            >
-              💰 {pts(user.balance)}
+        <div className="wallet">
+          {user && (
+            <span className={'balance' + (user.balance < 0 ? ' negative' : '')} title={t('balance.title')}>
+              💰 {signedPts(user.balance)}
             </span>
-            {jackpot > 0 && (
-              <span className="jackpot" title="Джекпот: дістанеться тим, хто вгадає точний рахунок" onClick={() => rain(['💰', '🪙'], 25)}>
-                🎰 {pts(jackpot)}
-              </span>
-            )}
-          </div>
-        )}
+          )}
+          <LangSwitch />
+        </div>
       </div>
-      {user && (
+      {user?.approved && (
         <nav className="container nav">
-          <NavLink to="/" end>Матчі</NavLink>
-          <NavLink to="/leaderboard">Таблиця</NavLink>
-          <NavLink to="/history">Історія</NavLink>
-          <NavLink to="/rules">Правила</NavLink>
-          {user.isAdmin && <NavLink to="/admin">Адмінка</NavLink>}
+          <NavLink to="/" end>{t('nav.matches')}</NavLink>
+          <NavLink to="/leaderboard">{t('nav.table')}</NavLink>
+          <NavLink to="/history">{t('nav.history')}</NavLink>
+          <NavLink to="/rules">{t('nav.rules')}</NavLink>
+          {user.isAdmin && (
+            <NavLink to="/admin">
+              {t('nav.admin')}
+              {pendingCount > 0 && <span className="count">{pendingCount}</span>}
+            </NavLink>
+          )}
           <span className="nav-spacer" />
           <span className="nav-user">👤 {user.username}</span>
-          <button className="link" onClick={logout}>Вийти</button>
+          <button className="link" onClick={logout}>{t('nav.logout')}</button>
         </nav>
       )}
     </header>
   );
 }
 
+function Pending() {
+  const { user, refresh } = useMe();
+  const { t } = useI18n();
+  const logout = async () => {
+    await api.post('/api/logout');
+    refresh();
+  };
+  return (
+    <div className="auth">
+      <div className="card auth-card stack">
+        <div className="auth-ball">⏳</div>
+        <h2>{t('pending.title')}</h2>
+        <p className="muted">{t('pending.text', { user: user.username })}</p>
+        <button className="btn primary" onClick={refresh}>{t('pending.check')}</button>
+        <button className="btn ghost" onClick={logout}>{t('nav.logout')}</button>
+      </div>
+    </div>
+  );
+}
+
 function Footer() {
   const { version } = useMe();
-  const [i, setI] = useState(() => Math.floor(Math.random() * QUOTES.length));
+  const { t, lang } = useI18n();
+  const quotes = QUOTES[lang];
+  const [i, setI] = useState(() => Math.floor(Math.random() * quotes.length));
   return (
     <footer className="footer container">
-      <p className="quote" onClick={() => setI((i + 1) % QUOTES.length)} title="Клікни — буде інша">
-        {QUOTES[i]}
+      <p className="quote" onClick={() => setI((i + 1) % quotes.length)} title={t('footer.quoteHint')}>
+        {quotes[i % quotes.length]}
       </p>
-      <p className="muted small">Грається на умовні бали. Жодних грошей, лише гордість 🏆 · <span title="Версія">v{version}</span></p>
+      <p className="muted small">
+        {t('footer.note')} · <span>v{version}</span>
+      </p>
     </footer>
   );
 }

@@ -1,16 +1,22 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { NavLink, Route, Routes } from 'react-router-dom';
-import { api, fmtDate, pts } from '../api.js';
+import { api, fmtDate, pts, signedPts } from '../api.js';
 import { useMe } from '../App.jsx';
-import { toast } from '../eggs.js';
+import { useI18n } from '../i18n.jsx';
+import { toast } from '../ui.js';
 
 export default function Admin() {
+  const { t } = useI18n();
+  const { pendingCount } = useMe();
   return (
     <div className="stack-lg">
       <nav className="subnav">
-        <NavLink to="/admin" end>Матчі</NavLink>
-        <NavLink to="/admin/users">Гравці</NavLink>
-        <NavLink to="/admin/settings">Налаштування</NavLink>
+        <NavLink to="/admin" end>{t('admin.matches')}</NavLink>
+        <NavLink to="/admin/users">
+          {t('admin.players')}
+          {pendingCount > 0 && <span className="count">{pendingCount}</span>}
+        </NavLink>
+        <NavLink to="/admin/settings">{t('admin.settings')}</NavLink>
       </nav>
       <Routes>
         <Route index element={<AdminMatches />} />
@@ -31,8 +37,8 @@ const fromLocalInput = (v) => new Date(v).toISOString();
 
 const run = async (fn, okMsg) => {
   try {
-    await fn();
-    if (okMsg) toast(okMsg);
+    const r = await fn();
+    if (okMsg) toast(typeof okMsg === 'function' ? okMsg(r) : okMsg);
     return true;
   } catch (e) {
     alert(e.message);
@@ -43,6 +49,7 @@ const run = async (fn, okMsg) => {
 // ---------------- Matches ----------------
 
 function AdminMatches() {
+  const { t } = useI18n();
   const { refresh } = useMe();
   const [matches, setMatches] = useState(null);
   const [editing, setEditing] = useState(null);
@@ -62,9 +69,10 @@ function AdminMatches() {
   return (
     <>
       <MatchForm key={editing?.id || 'new'} match={editing} onDone={() => { setEditing(null); reload(); }} onCancel={() => setEditing(null)} />
+      {!editing && <JsonImport onDone={reload} />}
       <section>
-        <h2>Активні матчі</h2>
-        {open.length === 0 && <p className="muted">Немає.</p>}
+        <h2>{t('admin.active')}</h2>
+        {open.length === 0 && <p className="muted">{t('admin.none')}</p>}
         <div className="stack">
           {open.map((m) => (
             <AdminMatchRow key={m.id} m={m} onEdit={() => { setEditing(m); window.scrollTo({ top: 0, behavior: 'smooth' }); }} onChange={reload} />
@@ -73,7 +81,7 @@ function AdminMatches() {
       </section>
       {closed.length > 0 && (
         <section>
-          <h2>Закриті</h2>
+          <h2>{t('admin.closed')}</h2>
           <div className="stack">
             {closed.map((m) => (
               <AdminMatchRow key={m.id} m={m} onChange={reload} />
@@ -86,6 +94,7 @@ function AdminMatches() {
 }
 
 function MatchForm({ match, onDone, onCancel }) {
+  const { t } = useI18n();
   const [f, setF] = useState(() =>
     match
       ? { home: match.home, away: match.away, tournament: match.tournament, kickoff: toLocalInput(match.kickoff), stake: match.stake / 100, bonus: match.bonus / 100 }
@@ -96,11 +105,10 @@ function MatchForm({ match, onDone, onCancel }) {
   const submit = async (e) => {
     e.preventDefault();
     const body = { ...f, kickoff: fromLocalInput(f.kickoff) };
-    if (body.stake === '') delete body.stake;
-    if (match && match.participants > 0) delete body.stake;
+    if (body.stake === '' || (match && match.participants > 0)) delete body.stake;
     const ok = await run(
       () => (match ? api.put(`/api/admin/matches/${match.id}`, body) : api.post('/api/admin/matches', body)),
-      match ? 'Матч оновлено' : 'Матч додано ⚽'
+      match ? t('admin.updated') : t('admin.added')
     );
     if (ok) {
       if (!match) setF({ ...f, home: '', away: '' });
@@ -110,30 +118,96 @@ function MatchForm({ match, onDone, onCancel }) {
 
   return (
     <form className="card stack" onSubmit={submit}>
-      <h2>{match ? `Редагувати: ${match.home} — ${match.away}` : 'Новий матч'}</h2>
+      <h2>{match ? t('admin.editMatch', { match: `${match.home} — ${match.away}` }) : t('admin.newMatch')}</h2>
       <div className="form-grid">
-        <label>Господарі<input value={f.home} onChange={set('home')} required placeholder="Динамо Київ" /></label>
-        <label>Гості<input value={f.away} onChange={set('away')} required placeholder="Шахтар" /></label>
-        <label>Турнір<input value={f.tournament} onChange={set('tournament')} placeholder="УПЛ, 12 тур" /></label>
-        <label>Початок<input type="datetime-local" value={f.kickoff} onChange={set('kickoff')} required /></label>
+        <label>{t('admin.home')}<input value={f.home} onChange={set('home')} required /></label>
+        <label>{t('admin.away')}<input value={f.away} onChange={set('away')} required /></label>
+        <label>{t('admin.tournament')}<input value={f.tournament} onChange={set('tournament')} /></label>
+        <label>{t('admin.kickoff')}<input type="datetime-local" value={f.kickoff} onChange={set('kickoff')} required /></label>
         <label>
-          Ставка (бали)
-          <input type="number" step="0.5" min="0.5" value={f.stake} onChange={set('stake')} placeholder="за замовч." disabled={match?.participants > 0} />
+          {t('admin.stake')}
+          <input type="number" step="0.5" min="0.5" value={f.stake} onChange={set('stake')} placeholder={t('admin.stakeDefault')} disabled={match?.participants > 0} />
         </label>
-        <label title="Бали «від дому», які додаються до банку матчу">
-          Бонус у банк
+        <label title={t('admin.bonusHint')}>
+          {t('admin.bonus')}
           <input type="number" step="0.5" min="0" value={f.bonus} onChange={set('bonus')} />
         </label>
       </div>
       <div className="row">
-        <button className="btn primary">{match ? 'Зберегти' : 'Додати матч'}</button>
-        {match && <button type="button" className="btn ghost" onClick={onCancel}>Скасувати редагування</button>}
+        <button className="btn primary">{match ? t('admin.save') : t('admin.add')}</button>
+        {match && <button type="button" className="btn ghost" onClick={onCancel}>{t('admin.cancelEdit')}</button>}
+      </div>
+    </form>
+  );
+}
+
+const JSON_EXAMPLE = `[
+  {
+    "home": "Шахтар",
+    "away": "Динамо Київ",
+    "tournament": "УПЛ, 12 тур",
+    "kickoff": "2026-11-01T17:00:00+02:00"
+  }
+]`;
+
+function JsonImport({ onDone }) {
+  const { t, locale } = useI18n();
+  const [text, setText] = useState('');
+
+  const parsed = useMemo(() => {
+    if (!text.trim()) return null;
+    try {
+      const v = JSON.parse(text);
+      const list = Array.isArray(v) ? v : [v];
+      return { list };
+    } catch (e) {
+      return { error: e.message };
+    }
+  }, [text]);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    const ok = await run(
+      () => api.post('/api/admin/matches/import', { matches: parsed.list }),
+      (r) => t('admin.importDone', r)
+    );
+    if (ok) {
+      setText('');
+      onDone();
+    }
+  };
+
+  return (
+    <form className="card stack" onSubmit={submit}>
+      <h2>{t('admin.importTitle')}</h2>
+      <p className="muted small">{t('admin.importHint')}</p>
+      <textarea className="json-input" value={text} onChange={(e) => setText(e.target.value)} placeholder={JSON_EXAMPLE} rows={8} spellCheck={false} />
+      {parsed?.error && <div className="error">{t('admin.importInvalid', { error: parsed.error })}</div>}
+      {parsed?.list && (
+        <div className="small">
+          <b>{t('admin.importPreview', { n: parsed.list.length })}</b>
+          <ul className="import-preview">
+            {parsed.list.map((m, i) => {
+              const d = new Date(m?.kickoff);
+              return (
+                <li key={i}>
+                  {m?.home || '?'} — {m?.away || '?'}
+                  <span className="muted"> · {Number.isNaN(d.getTime()) ? '?' : fmtDate(m.kickoff, locale)}{m?.tournament ? ` · ${m.tournament}` : ''}</span>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+      <div className="row">
+        <button className="btn primary" disabled={!parsed?.list}>{t('admin.importButton')}</button>
       </div>
     </form>
   );
 }
 
 function AdminMatchRow({ m, onEdit, onChange }) {
+  const { t, locale } = useI18n();
   const [score, setScore] = useState({ home: '', away: '' });
   const started = Date.parse(m.kickoff) <= Date.now();
 
@@ -141,22 +215,18 @@ function AdminMatchRow({ m, onEdit, onChange }) {
     e.preventDefault();
     let force = false;
     if (!started) {
-      if (!confirm('Матч ще не почався за розкладом. Все одно внести результат?')) return;
+      if (!confirm(t('admin.confirmEarly'))) return;
       force = true;
     }
-    if (!confirm(`Підтвердити рахунок ${m.home} ${score.home}:${score.away} ${m.away}? Бали розподіляться одразу.`)) return;
-    (await run(() => api.post(`/api/admin/matches/${m.id}/result`, { ...score, force }), 'Результат внесено, бали розподілено 🏆')) && onChange();
+    if (!confirm(t('admin.confirmResult', { score: `${m.home} ${score.home}:${score.away} ${m.away}` }))) return;
+    (await run(() => api.post(`/api/admin/matches/${m.id}/result`, { ...score, force }), t('admin.resultSaved'))) && onChange();
   };
   const cancel = async () =>
-    confirm('Скасувати матч? Усім повернуться ставки.') &&
-    (await run(() => api.post(`/api/admin/matches/${m.id}/cancel`), 'Матч скасовано')) &&
-    onChange();
+    confirm(t('admin.confirmCancel')) && (await run(() => api.post(`/api/admin/matches/${m.id}/cancel`), t('admin.cancelled'))) && onChange();
   const reopen = async () =>
-    confirm('Відкотити результат? Виплати буде анульовано, матч знову стане відкритим (можна внести правильний рахунок).') &&
-    (await run(() => api.post(`/api/admin/matches/${m.id}/reopen`), 'Результат відкочено')) &&
-    onChange();
+    confirm(t('admin.confirmReopen')) && (await run(() => api.post(`/api/admin/matches/${m.id}/reopen`), t('admin.reopened'))) && onChange();
   const remove = async () =>
-    confirm('Видалити матч назавжди?') && (await run(() => api.del(`/api/admin/matches/${m.id}`), 'Видалено')) && onChange();
+    confirm(t('admin.confirmDelete')) && (await run(() => api.del(`/api/admin/matches/${m.id}`), t('admin.deleted'))) && onChange();
 
   return (
     <div className="card admin-row">
@@ -164,8 +234,8 @@ function AdminMatchRow({ m, onEdit, onChange }) {
         <b>{m.home} — {m.away}</b> {m.status === 'finished' && <b>({m.homeScore}:{m.awayScore})</b>}
         <div className="muted small">
           {m.tournament && `${m.tournament} · `}
-          {fmtDate(m.kickoff)} · ставка {pts(m.stake)} · 👥 {m.participants} · банк {pts(m.pot)}
-          {m.status === 'cancelled' && ' · скасовано'}
+          {t('admin.matchInfo', { when: fmtDate(m.kickoff, locale), stake: pts(m.stake), people: m.participants, pot: pts(m.pot) })}
+          {m.status === 'cancelled' && t('admin.cancelledTag')}
         </div>
       </div>
       {m.status === 'open' ? (
@@ -174,16 +244,16 @@ function AdminMatchRow({ m, onEdit, onChange }) {
             <input className="score-mini" type="number" min="0" required value={score.home} onChange={(e) => setScore({ ...score, home: e.target.value })} />
             :
             <input className="score-mini" type="number" min="0" required value={score.away} onChange={(e) => setScore({ ...score, away: e.target.value })} />
-            <button className="btn primary small-btn">Фінал</button>
+            <button className="btn primary small-btn">{t('admin.final')}</button>
           </form>
           <div className="row">
             {onEdit && <button className="btn ghost small-btn" onClick={onEdit}>✏️</button>}
-            <button className="btn ghost small-btn" onClick={cancel}>Скасувати</button>
+            <button className="btn ghost small-btn" onClick={cancel}>{t('admin.cancelMatch')}</button>
             {m.participants === 0 && <button className="btn ghost small-btn" onClick={remove}>🗑️</button>}
           </div>
         </div>
       ) : (
-        <button className="btn ghost small-btn" onClick={reopen}>↩️ Відкотити</button>
+        <button className="btn ghost small-btn" onClick={reopen}>{t('admin.reopen')}</button>
       )}
     </div>
   );
@@ -192,6 +262,7 @@ function AdminMatchRow({ m, onEdit, onChange }) {
 // ---------------- Players ----------------
 
 function AdminUsers() {
+  const { t } = useI18n();
   const { user: me, refresh } = useMe();
   const [users, setUsers] = useState(null);
   const load = () => api.get('/api/admin/users').then(setUsers);
@@ -200,38 +271,58 @@ function AdminUsers() {
   }, []);
   if (!users) return <div className="loading">⚽</div>;
 
-  const adjust = async (u) => {
-    const amount = prompt(`Скільки балів додати гравцю ${u.username}? (відʼємне число — забрати)`, '5');
-    if (!amount) return;
-    const note = prompt('Коментар (видно гравцю в історії)', Number(amount) > 0 ? 'Трансфер від адміна' : 'Штраф');
-    (await run(() => api.post(`/api/admin/users/${u.id}/adjust`, { amount, note }), 'Баланс змінено')) && (load(), refresh());
+  const reload = () => {
+    load();
+    refresh();
   };
-  const toggleAdmin = async (u) =>
-    (await run(() => api.post(`/api/admin/users/${u.id}/admin`, { isAdmin: !u.isAdmin }))) && load();
+  const approve = async (u) =>
+    (await run(() => api.post(`/api/admin/users/${u.id}/approve`), t('admin.approved', { user: u.username }))) && reload();
+  const reject = async (u) =>
+    confirm(t('admin.confirmReject', { user: u.username })) &&
+    (await run(() => api.del(`/api/admin/users/${u.id}`), t('admin.rejected'))) &&
+    reload();
+  const adjust = async (u) => {
+    const amount = prompt(t('admin.adjustPrompt', { user: u.username }), '5');
+    if (!amount) return;
+    const note = prompt(t('admin.adjustNote'), '');
+    (await run(() => api.post(`/api/admin/users/${u.id}/adjust`, { amount, note }), t('admin.adjusted'))) && reload();
+  };
+  const toggleAdmin = async (u) => (await run(() => api.post(`/api/admin/users/${u.id}/admin`, { isAdmin: !u.isAdmin }))) && load();
   const resetPw = async (u) => {
-    const password = prompt(`Новий пароль для ${u.username}:`);
-    if (password) await run(() => api.post(`/api/admin/users/${u.id}/password`, { password }), 'Пароль змінено');
+    const password = prompt(t('admin.passwordPrompt', { user: u.username }));
+    if (password) await run(() => api.post(`/api/admin/users/${u.id}/password`, { password }), t('admin.passwordChanged'));
   };
 
   return (
     <section>
-      <h2>Гравці ({users.length})</h2>
+      <h2>{t('admin.playersTitle', { n: users.length })}</h2>
       <div className="card table-wrap">
         <table className="table">
           <thead>
-            <tr><th>Логін</th><th>Баланс</th><th>Адмін</th><th /></tr>
+            <tr><th>{t('admin.colUser')}</th><th>{t('admin.colBalance')}</th><th>{t('admin.colAdmin')}</th><th /></tr>
           </thead>
           <tbody>
             {users.map((u) => (
-              <tr key={u.id}>
-                <td>{u.username}</td>
-                <td><b>{pts(u.balance)}</b></td>
+              <tr key={u.id} className={u.approved ? '' : 'pending-row'}>
                 <td>
-                  <input type="checkbox" checked={!!u.isAdmin} disabled={u.id === me.id} onChange={() => toggleAdmin(u)} />
+                  {u.username} {!u.approved && <span className="badge">{t('admin.pending')}</span>}
+                </td>
+                <td><b>{signedPts(u.balance)}</b></td>
+                <td>
+                  <input type="checkbox" checked={!!u.isAdmin} disabled={u.id === me.id || !u.approved} onChange={() => toggleAdmin(u)} />
                 </td>
                 <td className="row nowrap">
-                  <button className="btn ghost small-btn" onClick={() => adjust(u)}>± бали</button>
-                  <button className="btn ghost small-btn" onClick={() => resetPw(u)}>🔑</button>
+                  {u.approved ? (
+                    <>
+                      <button className="btn ghost small-btn" onClick={() => adjust(u)}>{t('admin.adjustButton')}</button>
+                      <button className="btn ghost small-btn" onClick={() => resetPw(u)}>🔑</button>
+                    </>
+                  ) : (
+                    <>
+                      <button className="btn primary small-btn" onClick={() => approve(u)}>{t('admin.approve')}</button>
+                      <button className="btn ghost small-btn" onClick={() => reject(u)}>{t('admin.reject')}</button>
+                    </>
+                  )}
                 </td>
               </tr>
             ))}
@@ -245,58 +336,52 @@ function AdminUsers() {
 // ---------------- Settings ----------------
 
 function AdminSettings() {
-  const { refresh, jackpot } = useMe();
+  const { t } = useI18n();
+  const { refresh } = useMe();
   const [s, setS] = useState(null);
   useEffect(() => {
     api.get('/api/admin/settings').then(setS);
   }, []);
   if (!s) return <div className="loading">⚽</div>;
-  const set = (k, num = true) => (e) => setS({ ...s, [k]: num ? e.target.value : e.target.value });
+  const set = (k) => (e) => setS({ ...s, [k]: e.target.value });
 
   const save = async (e) => {
     e.preventDefault();
-    (await run(() => api.put('/api/admin/settings', s).then(setS), 'Збережено ✅')) && refresh();
-  };
-  const adjustJackpot = async () => {
-    const amount = prompt('Скільки додати в джекпот? (відʼємне — забрати)', '5');
-    if (amount) (await run(() => api.post('/api/admin/jackpot', { amount }), 'Джекпот змінено 🎰')) && refresh();
+    (await run(() => api.put('/api/admin/settings', s).then(setS), t('admin.saved'))) && refresh();
   };
 
   return (
-    <form className="card stack" onSubmit={save}>
-      <h2>Налаштування</h2>
-      <div className="form-grid">
-        <label>Назва сайту<input value={s.siteName} onChange={set('siteName', false)} /></label>
-        <label>Код запрошення<input value={s.inviteCode} onChange={set('inviteCode', false)} placeholder="порожньо = реєстрація відкрита" /></label>
-        <label>Стартовий баланс<input type="number" step="0.5" min="0" value={s.startingBalance} onChange={set('startingBalance')} /></label>
-        <label>Ставка за замовчуванням<input type="number" step="0.5" min="0.5" value={s.defaultStake} onChange={set('defaultStake')} /></label>
+    <>
+      <form className="card stack" onSubmit={save}>
+        <h2>{t('admin.settings')}</h2>
+        <div className="form-grid">
+          <label>{t('admin.siteName')}<input value={s.siteName} onChange={set('siteName')} /></label>
+          <label>{t('admin.invite')}<input value={s.inviteCode} onChange={set('inviteCode')} placeholder={t('admin.invitePlaceholder')} /></label>
+          <label>{t('admin.defaultStake')}<input type="number" step="0.5" min="0.5" value={s.defaultStake} onChange={set('defaultStake')} /></label>
+          <label className="checkbox">
+            <input type="checkbox" checked={!!s.requireApproval} onChange={(e) => setS({ ...s, requireApproval: e.target.checked })} />
+            {t('admin.requireApproval')}
+          </label>
+        </div>
+        <h3>{t('admin.weights')}</h3>
+        <p className="muted small">{t('admin.weightsHint')}</p>
+        <div className="form-grid">
+          <label>{t('rules.exact')}<input type="number" step="0.5" min="0" value={s.wExact} onChange={set('wExact')} /></label>
+          <label>{t('rules.diff')}<input type="number" step="0.5" min="0" value={s.wDiff} onChange={set('wDiff')} /></label>
+          <label>{t('rules.outcome')}<input type="number" step="0.5" min="0" value={s.wOutcome} onChange={set('wOutcome')} /></label>
+          <label>{t('rules.near')}<input type="number" step="0.5" min="0" value={s.wNear} onChange={set('wNear')} /></label>
+        </div>
+        <div className="row">
+          <button className="btn primary">{t('admin.save')}</button>
+        </div>
+      </form>
+      <div className="card stack">
+        <h2>{t('admin.data')}</h2>
+        <p className="muted small">{t('admin.exportHint')}</p>
+        <div className="row">
+          <a className="btn ghost" href="/api/admin/export" download>{t('admin.export')}</a>
+        </div>
       </div>
-      <h3>Ваги прогнозів</h3>
-      <p className="muted small">Банк матчу ділиться пропорційно вагам. Чим більша вага точного рахунку відносно інших — тим більший приз за нього.</p>
-      <div className="form-grid">
-        <label>🎯 Точний рахунок<input type="number" step="0.5" min="0" value={s.wExact} onChange={set('wExact')} /></label>
-        <label>🔥 Результат + різниця<input type="number" step="0.5" min="0" value={s.wDiff} onChange={set('wDiff')} /></label>
-        <label>👍 Лише результат<input type="number" step="0.5" min="0" value={s.wOutcome} onChange={set('wOutcome')} /></label>
-        <label>🤏 Майже (±1 гол)<input type="number" step="0.5" min="0" value={s.wNear} onChange={set('wNear')} /></label>
-      </div>
-      <h3>Інше</h3>
-      <div className="form-grid">
-        <label>
-          Якщо ніхто не вгадав
-          <select value={s.noWinnerPolicy} onChange={set('noWinnerPolicy', false)}>
-            <option value="jackpot">Банк → у джекпот 🎰</option>
-            <option value="refund">Повернути ставки</option>
-          </select>
-        </label>
-        <label className="checkbox">
-          <input type="checkbox" checked={s.allowDebt} onChange={(e) => setS({ ...s, allowDebt: e.target.checked })} />
-          Дозволити ставити в мінус
-        </label>
-      </div>
-      <div className="row">
-        <button className="btn primary">Зберегти</button>
-        <button type="button" className="btn ghost" onClick={adjustJackpot}>🎰 Джекпот: {pts(jackpot)}</button>
-      </div>
-    </form>
+    </>
   );
 }

@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api, fmtDate, plural, pts, TIER } from '../api.js';
+import { api, fmtDate, pts, TIER_EMOJI } from '../api.js';
+import { useI18n } from '../i18n.jsx';
+import Comments from '../Comments.jsx';
 
 export function useNow(ms = 30_000) {
   const [now, setNow] = useState(Date.now());
@@ -11,17 +13,21 @@ export function useNow(ms = 30_000) {
   return now;
 }
 
-export function countdown(iso, now) {
+const UNITS = { uk: ['д', 'год', 'хв'], en: ['d', 'h', 'min'] };
+
+export function countdown(iso, now, lang) {
   const diff = Date.parse(iso) - now;
   if (diff <= 0) return null;
+  const [dU, hU, mU] = UNITS[lang];
   const m = Math.floor(diff / 60000);
   const d = Math.floor(m / 1440), h = Math.floor((m % 1440) / 60), mm = m % 60;
-  if (d) return `${d} д ${h} год`;
-  if (h) return `${h} год ${mm} хв`;
-  return `${mm} хв`;
+  if (d) return `${d} ${dU} ${h} ${hU}`;
+  if (h) return `${h} ${hU} ${mm} ${mU}`;
+  return `${mm} ${mU}`;
 }
 
 export default function Matches() {
+  const { t } = useI18n();
   const [matches, setMatches] = useState(null);
   const [error, setError] = useState('');
   const now = useNow();
@@ -40,9 +46,9 @@ export default function Matches() {
 
   return (
     <div className="stack-lg">
-      <Section title="🟢 Можна ставити" empty="Поки що матчів немає. Адмін, прокидайся! ⏰" list={open} now={now} />
-      {live.length > 0 && <Section title="🔴 Йдуть / чекають на результат" list={live} now={now} />}
-      {done.length > 0 && <Section title="🏁 Завершені" list={done} now={now} />}
+      <Section title={t('matches.open')} empty={t('matches.openEmpty')} list={open} now={now} />
+      {live.length > 0 && <Section title={t('matches.live')} list={live} now={now} />}
+      {done.length > 0 && <Section title={t('matches.done')} list={done} now={now} />}
     </div>
   );
 }
@@ -65,52 +71,53 @@ function Section({ title, list, empty, now }) {
 }
 
 function MatchCard({ m, now }) {
-  const cd = m.status === 'open' ? countdown(m.kickoff, now) : null;
+  const { t, lang, locale } = useI18n();
+  const cd = m.status === 'open' ? countdown(m.kickoff, now, lang) : null;
   return (
-    <Link to={`/match/${m.id}`} className={'card match-card status-' + m.status}>
-      <div className="match-meta">
-        <span>{m.tournament || 'Матч'}</span>
-        <span>{fmtDate(m.kickoff)}</span>
-      </div>
-      <div className="teams">
-        <span className="team">{m.home}</span>
-        <span className="score">
-          {m.status === 'finished' ? `${m.homeScore}:${m.awayScore}` : m.status === 'cancelled' ? '✖' : 'vs'}
-        </span>
-        <span className="team">{m.away}</span>
-      </div>
-      <div className="match-foot">
-        <span>
-          👥 {m.participants} · 🏦 {pts(m.pot)} {m.bonus > 0 && <span className="badge">+бонус</span>}
-        </span>
-        {m.status === 'cancelled' ? (
-          <span className="muted">скасовано</span>
-        ) : cd ? (
-          <span className="muted">⏳ {cd}</span>
-        ) : m.status === 'open' ? (
-          <span className="live">● LIVE</span>
-        ) : null}
-      </div>
-      <div className="my-bet">
-        {m.my ? (
-          <>
-            Мій прогноз: <b>{m.my.home}:{m.my.away}</b>
-            {m.status === 'finished' &&
-              (m.my.payout > 0 ? (
-                <span className="win">
-                  {' '}
-                  {TIER[m.my.tier]?.emoji} +{pts(m.my.payout)}
-                </span>
-              ) : (
-                <span className="lose"> 💸 мимо</span>
-              ))}
-          </>
-        ) : m.status === 'open' && cd ? (
-          <span className="cta">Зробити прогноз → (ставка {pts(m.stake)} {plural(m.stake / 100, 'бал', 'бали', 'балів')})</span>
-        ) : (
-          <span className="muted">Без мене</span>
-        )}
-      </div>
-    </Link>
+    <div className={'card match-card status-' + m.status}>
+      <Link to={`/match/${m.id}`} className="match-link">
+        <div className="match-meta">
+          <span>{m.tournament || t('match.default')}</span>
+          <span>{fmtDate(m.kickoff, locale)}</span>
+        </div>
+        <div className="teams">
+          <span className="team">{m.home}</span>
+          <span className="score">
+            {m.status === 'finished' ? `${m.homeScore}:${m.awayScore}` : m.status === 'cancelled' ? '✖' : 'vs'}
+          </span>
+          <span className="team">{m.away}</span>
+        </div>
+        <div className="match-foot">
+          <span>
+            👥 {m.participants} · 🏦 {pts(m.pot)} {m.bonus > 0 && <span className="badge">{t('match.bonus')}</span>}
+          </span>
+          {m.status === 'cancelled' ? (
+            <span className="muted">{t('match.cancelled')}</span>
+          ) : cd ? (
+            <span className="muted">⏳ {cd}</span>
+          ) : m.status === 'open' ? (
+            <span className="live">● LIVE</span>
+          ) : null}
+        </div>
+        <div className="my-bet">
+          {m.my ? (
+            <>
+              {t('match.myBet')} <b>{m.my.home}:{m.my.away}</b>
+              {m.status === 'finished' &&
+                (m.my.payout > 0 ? (
+                  <span className="win"> {TIER_EMOJI[m.my.tier]} +{pts(m.my.payout)}</span>
+                ) : (
+                  <span className="lose"> {t('match.miss')}</span>
+                ))}
+            </>
+          ) : m.status === 'open' && cd ? (
+            <span className="cta">{t('match.makeBet', { stake: pts(m.stake) })}</span>
+          ) : (
+            <span className="muted">{t('match.notIn')}</span>
+          )}
+        </div>
+      </Link>
+      <Comments matchId={m.id} count={m.comments} />
+    </div>
   );
 }

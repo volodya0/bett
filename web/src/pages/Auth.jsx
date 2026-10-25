@@ -2,10 +2,12 @@ import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { api } from '../api.js';
 import { useMe } from '../App.jsx';
-import { famousNameQuip, nightQuip, toast } from '../eggs.js';
+import { useI18n } from '../i18n.jsx';
+import { toast } from '../ui.js';
 
 export default function Auth() {
   const { refresh, inviteRequired, siteName } = useMe();
+  const { t } = useI18n();
   const [mode, setMode] = useState('login');
   const [form, setForm] = useState({ username: '', password: '', inviteCode: '' });
   const [error, setError] = useState('');
@@ -18,9 +20,7 @@ export default function Auth() {
     setBusy(true);
     try {
       await api.post(mode === 'login' ? '/api/login' : '/api/register', form);
-      const quip = (mode === 'register' && famousNameQuip(form.username)) || nightQuip();
-      if (quip) toast(quip);
-      else if (mode === 'register') toast('Ласкаво просимо в гру! Стартові бали вже на рахунку 💰');
+      if (mode === 'register') toast(t('auth.welcome'));
       await refresh();
     } catch (err) {
       setError(err.message);
@@ -34,18 +34,18 @@ export default function Auth() {
       <div className="card auth-card">
         <div className="auth-ball">⚽</div>
         <h1>{siteName}</h1>
-        <p className="muted">Вгадуй рахунки, забирай бали, хизуйся перед кумами.</p>
+        <p className="muted">{t('auth.tagline')}</p>
         <div className="tabs">
-          <button className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')}>Вхід</button>
-          <button className={mode === 'register' ? 'active' : ''} onClick={() => setMode('register')}>Реєстрація</button>
+          <button className={mode === 'login' ? 'active' : ''} onClick={() => setMode('login')}>{t('auth.login')}</button>
+          <button className={mode === 'register' ? 'active' : ''} onClick={() => setMode('register')}>{t('auth.register')}</button>
         </div>
         <form onSubmit={submit} className="stack">
           <label>
-            Логін
+            {t('auth.username')}
             <input value={form.username} onChange={set('username')} autoComplete="username" required autoFocus />
           </label>
           <label>
-            Пароль
+            {t('auth.password')}
             <input
               type="password"
               value={form.password}
@@ -56,17 +56,17 @@ export default function Auth() {
           </label>
           {mode === 'register' && inviteRequired && (
             <label>
-              Код запрошення
-              <input value={form.inviteCode} onChange={set('inviteCode')} required placeholder="спитай у адміна" />
+              {t('auth.invite')}
+              <input value={form.inviteCode} onChange={set('inviteCode')} required placeholder={t('auth.invitePlaceholder')} />
             </label>
           )}
           {error && <div className="error">{error}</div>}
           <button className="btn primary" disabled={busy}>
-            {mode === 'login' ? 'Увійти' : 'Зареєструватися'}
+            {mode === 'login' ? t('auth.submitLogin') : t('auth.submitRegister')}
           </button>
         </form>
         <p className="small muted center">
-          <Link to="/rules">Як це працює?</Link>
+          <Link to="/rules">{t('auth.howItWorks')}</Link>
         </p>
       </div>
     </div>

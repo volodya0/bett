@@ -1,13 +1,14 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useI18n } from '../i18n.jsx';
 
 export default function NotFound() {
+  const { t } = useI18n();
   return (
     <div className="card center notfound">
-      <div className="big-emoji">📺</div>
-      <h2>404 — Офсайд!</h2>
-      <p>VAR переглянув повтор з усіх ракурсів: такої сторінки не існує.</p>
-      <Link to="/" className="btn primary">Повернутися на поле</Link>
+      <h2>{t('notFound.title')}</h2>
+      <p>{t('notFound.text')}</p>
+      <Link to="/" className="btn primary">{t('notFound.back')}</Link>
     </div>
   );
 }

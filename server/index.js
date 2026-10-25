@@ -7,6 +7,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { db, getSettings, saveSettings, DEFAULT_SETTINGS, tx } from './db.js';
 import { settle } from './scoring.js';
+import { translate } from './messages.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
@@ -27,7 +28,7 @@ function sessionSecret() {
 
 const app = express();
 app.set('trust proxy', 1);
-app.use(express.json());
+app.use(express.json({ limit: '200kb' }));
 app.use(
   cookieSession({
     name: 'kumbet',
@@ -38,24 +39,20 @@ app.use(
   })
 );
 
-// CSRF protection: mutations only via JSON requests (a cross-site form can't send those).
-app.use('/api', (req, res, next) => {
-  if (req.method !== 'GET' && !req.is('application/json')) {
-    return res.status(415).json({ error: 'Очікується JSON' });
-  }
-  next();
-});
+const langOf = (req) => (req.get('x-lang') === 'en' ? 'en' : 'uk');
 
 // ---------- helpers ----------
 
 class HttpError extends Error {
-  constructor(status, message) {
-    super(message);
+  constructor(status, key, params) {
+    super(key);
     this.status = status;
+    this.key = key;
+    this.params = params;
   }
 }
-const fail = (status, message) => {
-  throw new HttpError(status, message);
+const fail = (status, key, params) => {
+  throw new HttpError(status, key, params);
 };
 const wrap = (fn) => (req, res, next) => {
   try {
@@ -66,38 +63,45 @@ const wrap = (fn) => (req, res, next) => {
   }
 };
 
+// CSRF protection: mutations only via JSON requests (a cross-site form can't send those).
+app.use('/api', (req, res, next) => {
+  if (req.method !== 'GET' && !req.is('application/json')) return next(new HttpError(415, 'jsonExpected'));
+  next();
+});
+
 const toCents = (points) => Math.round(Number(points) * 100);
 const balanceOf = (userId) =>
   db.prepare('SELECT COALESCE(SUM(amount), 0) AS b FROM transactions WHERE user_id = ?').get(userId).b;
-const jackpotBalance = () => db.prepare('SELECT COALESCE(SUM(amount), 0) AS j FROM jackpot').get().j;
 const isLocked = (m) => m.status !== 'open' || Date.now() >= Date.parse(m.kickoff);
 
 function currentUser(req) {
   if (!req.session?.uid) return null;
-  return db.prepare('SELECT id, username, is_admin FROM users WHERE id = ?').get(req.session.uid) || null;
+  return db.prepare('SELECT id, username, is_admin, approved FROM users WHERE id = ?').get(req.session.uid) || null;
 }
 function requireUser(req) {
   const u = currentUser(req);
-  if (!u) fail(401, 'Спочатку увійдіть');
+  if (!u) fail(401, 'loginRequired');
+  if (!u.approved) fail(403, 'pendingApproval');
   return u;
 }
 function requireAdmin(req) {
   const u = requireUser(req);
-  if (!u.is_admin) fail(403, 'Тільки для адміна');
+  if (!u.is_admin) fail(403, 'adminOnly');
   return u;
 }
 function getMatch(id) {
   const m = db.prepare('SELECT * FROM matches WHERE id = ?').get(Number(id));
-  if (!m) fail(404, 'Матч не знайдено');
+  if (!m) fail(404, 'matchNotFound');
   return m;
 }
 function parseScore(v) {
   const n = Number(v);
-  if (!Number.isInteger(n) || n < 0 || n > 99) fail(400, 'Рахунок — ціле число від 0 до 99');
+  if (v === '' || v === null || !Number.isInteger(n) || n < 0 || n > 99) fail(400, 'badScore');
   return n;
 }
 function publicMatch(m) {
   const count = db.prepare('SELECT COUNT(*) AS c FROM predictions WHERE match_id = ?').get(m.id).c;
+  const comments = db.prepare('SELECT COUNT(*) AS c FROM comments WHERE match_id = ?').get(m.id).c;
   return {
     id: m.id,
     home: m.home,
@@ -112,6 +116,7 @@ function publicMatch(m) {
     locked: isLocked(m),
     participants: count,
     pot: m.stake * count + m.bonus,
+    comments,
   };
 }
 
@@ -129,11 +134,17 @@ app.get(
     const u = currentUser(req);
     const s = getSettings();
     return {
-      user: u && { id: u.id, username: u.username, isAdmin: !!u.is_admin, balance: balanceOf(u.id) },
+      user: u && {
+        id: u.id,
+        username: u.username,
+        isAdmin: !!u.is_admin,
+        approved: !!u.approved,
+        balance: balanceOf(u.id),
+      },
+      pendingCount: u?.is_admin ? db.prepare('SELECT COUNT(*) AS c FROM users WHERE approved = 0').get().c : 0,
       siteName: s.siteName,
       version: VERSION,
       inviteRequired: !!s.inviteCode,
-      jackpot: jackpotBalance(),
     };
   })
 );
@@ -144,28 +155,18 @@ app.post(
     const s = getSettings();
     const username = String(req.body.username || '').trim();
     const password = String(req.body.password || '');
-    if (!/^[\p{L}\p{N}_.\-]{2,24}$/u.test(username))
-      fail(400, 'Логін: 2–24 символи, літери/цифри/._-');
-    if (password.length < 4) fail(400, 'Пароль — мінімум 4 символи');
-    if (s.inviteCode && String(req.body.inviteCode || '').trim() !== s.inviteCode)
-      fail(403, 'Невірний код запрошення');
-    if (db.prepare('SELECT 1 FROM users WHERE username = ?').get(username)) fail(409, 'Такий логін уже зайнятий');
+    if (!/^[\p{L}\p{N}_.\-]{2,24}$/u.test(username)) fail(400, 'badUsername');
+    if (password.length < 4) fail(400, 'shortPassword');
+    if (s.inviteCode && String(req.body.inviteCode || '').trim() !== s.inviteCode) fail(403, 'badInvite');
+    if (db.prepare('SELECT 1 FROM users WHERE username = ?').get(username)) fail(409, 'usernameTaken');
 
     const isFirst = db.prepare('SELECT COUNT(*) AS c FROM users').get().c === 0;
     const isAdmin = isFirst || ADMIN_USERNAMES.includes(username.toLowerCase());
-    const id = tx(() => {
-      const { lastInsertRowid } = db
-        .prepare('INSERT INTO users (username, password_hash, is_admin) VALUES (?, ?, ?)')
-        .run(username, bcrypt.hashSync(password, 10), isAdmin ? 1 : 0);
-      const start = toCents(s.startingBalance);
-      if (start)
-        db.prepare("INSERT INTO transactions (user_id, amount, kind, note) VALUES (?, ?, 'start', 'Стартові бали')").run(
-          lastInsertRowid,
-          start
-        );
-      return Number(lastInsertRowid);
-    });
-    req.session.uid = id;
+    const approved = isAdmin || !s.requireApproval;
+    const { lastInsertRowid } = db
+      .prepare('INSERT INTO users (username, password_hash, is_admin, approved) VALUES (?, ?, ?, ?)')
+      .run(username, bcrypt.hashSync(password, 10), isAdmin ? 1 : 0, approved ? 1 : 0);
+    req.session.uid = Number(lastInsertRowid);
     return { ok: true };
   })
 );
@@ -174,8 +175,7 @@ app.post(
   '/api/login',
   wrap((req) => {
     const u = db.prepare('SELECT * FROM users WHERE username = ?').get(String(req.body.username || '').trim());
-    if (!u || !bcrypt.compareSync(String(req.body.password || ''), u.password_hash))
-      fail(401, 'Невірний логін або пароль');
+    if (!u || !bcrypt.compareSync(String(req.body.password || ''), u.password_hash)) fail(401, 'badCredentials');
     req.session.uid = u.id;
     return { ok: true };
   })
@@ -247,7 +247,7 @@ app.post(
     const away = parseScore(req.body.away);
     return tx(() => {
       const m = getMatch(req.params.id);
-      if (isLocked(m)) fail(409, 'Матч уже почався — ставки закрито');
+      if (isLocked(m)) fail(409, 'betsClosed');
       const existing = db.prepare('SELECT id FROM predictions WHERE match_id = ? AND user_id = ?').get(m.id, u.id);
       if (existing) {
         db.prepare("UPDATE predictions SET home = ?, away = ?, updated_at = datetime('now') WHERE id = ?").run(
@@ -256,19 +256,11 @@ app.post(
           existing.id
         );
       } else {
-        const s = getSettings();
-        if (!s.allowDebt && balanceOf(u.id) < m.stake) fail(402, 'Недостатньо балів для ставки');
-        db.prepare('INSERT INTO predictions (match_id, user_id, home, away) VALUES (?, ?, ?, ?)').run(
-          m.id,
-          u.id,
-          home,
-          away
-        );
-        db.prepare("INSERT INTO transactions (user_id, amount, kind, match_id, note) VALUES (?, ?, 'stake', ?, ?)").run(
+        db.prepare('INSERT INTO predictions (match_id, user_id, home, away) VALUES (?, ?, ?, ?)').run(m.id, u.id, home, away);
+        db.prepare("INSERT INTO transactions (user_id, amount, kind, match_id) VALUES (?, ?, 'stake', ?)").run(
           u.id,
           -m.stake,
-          m.id,
-          `Ставка: ${m.home} — ${m.away}`
+          m.id
         );
       }
       return { ok: true, balance: balanceOf(u.id) };
@@ -282,11 +274,54 @@ app.delete(
     const u = requireUser(req);
     return tx(() => {
       const m = getMatch(req.params.id);
-      if (isLocked(m)) fail(409, 'Матч уже почався — ставку не забрати');
+      if (isLocked(m)) fail(409, 'cantWithdraw');
       db.prepare('DELETE FROM predictions WHERE match_id = ? AND user_id = ?').run(m.id, u.id);
       db.prepare("DELETE FROM transactions WHERE match_id = ? AND user_id = ? AND kind = 'stake'").run(m.id, u.id);
       return { ok: true, balance: balanceOf(u.id) };
     });
+  })
+);
+
+// ---------- comments ----------
+
+app.get(
+  '/api/matches/:id/comments',
+  wrap((req) => {
+    const u = requireUser(req);
+    const m = getMatch(req.params.id);
+    return db
+      .prepare(
+        `SELECT c.id, c.text, c.created_at AS createdAt, u.username, c.user_id = ? AS mine
+         FROM comments c JOIN users u ON u.id = c.user_id
+         WHERE c.match_id = ? ORDER BY c.id`
+      )
+      .all(u.id, m.id)
+      .map((c) => ({ ...c, mine: !!c.mine }));
+  })
+);
+
+app.post(
+  '/api/matches/:id/comments',
+  wrap((req) => {
+    const u = requireUser(req);
+    const m = getMatch(req.params.id);
+    const text = String(req.body.text || '').trim();
+    if (!text) fail(400, 'commentEmpty');
+    if (text.length > 1000) fail(400, 'commentTooLong');
+    db.prepare('INSERT INTO comments (match_id, user_id, text) VALUES (?, ?, ?)').run(m.id, u.id, text);
+    return { ok: true };
+  })
+);
+
+app.delete(
+  '/api/comments/:id',
+  wrap((req) => {
+    const u = requireUser(req);
+    const c = db.prepare('SELECT user_id FROM comments WHERE id = ?').get(Number(req.params.id));
+    if (!c) fail(404, 'commentNotFound');
+    if (c.user_id !== u.id && !u.is_admin) fail(403, 'cantDeleteComment');
+    db.prepare('DELETE FROM comments WHERE id = ?').run(Number(req.params.id));
+    return { ok: true };
   })
 );
 
@@ -303,7 +338,7 @@ app.get(
            (SELECT COUNT(*) FROM predictions p WHERE p.user_id = u.id) AS bets,
            (SELECT COUNT(*) FROM predictions p WHERE p.user_id = u.id AND p.tier = 'exact') AS exact,
            (SELECT COUNT(*) FROM predictions p WHERE p.user_id = u.id AND p.payout > 0) AS hits
-         FROM users u ORDER BY balance DESC, exact DESC, u.username`
+         FROM users u WHERE u.approved = 1 ORDER BY balance DESC, exact DESC, u.username`
       )
       .all();
   })
@@ -314,7 +349,12 @@ app.get(
   wrap((req) => {
     const u = requireUser(req);
     return db
-      .prepare('SELECT amount, kind, note, match_id, created_at FROM transactions WHERE user_id = ? ORDER BY id DESC')
+      .prepare(
+        `SELECT t.amount, t.kind, t.note, t.match_id AS matchId, t.created_at AS createdAt,
+           m.home, m.away, m.home_score AS homeScore, m.away_score AS awayScore
+         FROM transactions t LEFT JOIN matches m ON m.id = t.match_id
+         WHERE t.user_id = ? ORDER BY t.id DESC`
+      )
       .all(u.id);
   })
 );
@@ -323,17 +363,7 @@ app.get(
   '/api/rules',
   wrap(() => {
     const s = getSettings();
-    return {
-      startingBalance: s.startingBalance,
-      defaultStake: s.defaultStake,
-      wExact: s.wExact,
-      wDiff: s.wDiff,
-      wOutcome: s.wOutcome,
-      wNear: s.wNear,
-      noWinnerPolicy: s.noWinnerPolicy,
-      allowDebt: s.allowDebt,
-      jackpot: jackpotBalance(),
-    };
+    return { defaultStake: s.defaultStake, wExact: s.wExact, wDiff: s.wDiff, wOutcome: s.wOutcome, wNear: s.wNear };
   })
 );
 
@@ -357,12 +387,11 @@ app.put(
       const v = req.body[k];
       if (typeof def === 'number') {
         const n = Number(v);
-        if (!Number.isFinite(n) || n < 0) fail(400, `Невірне значення: ${k}`);
+        if (!Number.isFinite(n) || n < 0) fail(400, 'badValue', { field: k });
         patch[k] = n;
       } else if (typeof def === 'boolean') patch[k] = !!v;
       else patch[k] = String(v).trim();
     }
-    if (patch.noWinnerPolicy && !['jackpot', 'refund'].includes(patch.noWinnerPolicy)) fail(400, 'Невірна політика');
     saveSettings(patch);
     return getSettings();
   })
@@ -371,35 +400,73 @@ app.put(
 function readMatchBody(body, partial = false) {
   const out = {};
   for (const k of ['home', 'away', 'tournament']) {
-    if (k in body) out[k] = String(body[k] || '').trim();
+    if (k in body) out[k] = String(body[k] ?? '').trim();
   }
-  if (!partial && (!out.home || !out.away)) fail(400, 'Вкажіть обидві команди');
+  if (!partial && (!out.home || !out.away)) fail(400, 'teamsRequired');
   if ('kickoff' in body || !partial) {
-    const t = Date.parse(body.kickoff);
-    if (Number.isNaN(t)) fail(400, 'Невірний час початку');
+    const raw = String(body.kickoff ?? '');
+    // Without an explicit offset the time would be read in the server's zone (UTC).
+    if (!/(Z|[+-]\d\d:?\d\d)$/i.test(raw)) fail(400, 'kickoffNeedsTz');
+    const t = Date.parse(raw);
+    if (Number.isNaN(t)) fail(400, 'badKickoff');
     out.kickoff = new Date(t).toISOString();
   }
-  if ('stake' in body) {
+  if ('stake' in body && body.stake !== '' && body.stake != null) {
     out.stake = toCents(body.stake);
-    if (!(out.stake > 0)) fail(400, 'Ставка має бути більшою за 0');
+    if (!(out.stake > 0)) fail(400, 'stakePositive');
   }
   if ('bonus' in body) {
     out.bonus = toCents(body.bonus || 0);
-    if (out.bonus < 0) fail(400, 'Бонус не може бути відʼємним');
+    if (!(out.bonus >= 0)) fail(400, 'bonusNegative');
   }
   return out;
+}
+
+function insertMatch(d) {
+  const stake = d.stake ?? toCents(getSettings().defaultStake);
+  const { lastInsertRowid } = db
+    .prepare('INSERT INTO matches (home, away, tournament, kickoff, stake, bonus) VALUES (?, ?, ?, ?, ?, ?)')
+    .run(d.home, d.away, d.tournament || '', d.kickoff, stake, d.bonus || 0);
+  return Number(lastInsertRowid);
 }
 
 app.post(
   '/api/admin/matches',
   wrap((req) => {
     requireAdmin(req);
-    const d = readMatchBody(req.body);
-    const stake = d.stake ?? toCents(getSettings().defaultStake);
-    const { lastInsertRowid } = db
-      .prepare('INSERT INTO matches (home, away, tournament, kickoff, stake, bonus) VALUES (?, ?, ?, ?, ?, ?)')
-      .run(d.home, d.away, d.tournament || '', d.kickoff, stake, d.bonus || 0);
-    return { id: Number(lastInsertRowid) };
+    return { id: insertMatch(readMatchBody(req.body)) };
+  })
+);
+
+// Bulk add from JSON: a single match object or an array of them.
+// Matches with the same teams and kickoff as an existing one are skipped.
+app.post(
+  '/api/admin/matches/import',
+  wrap((req) => {
+    requireAdmin(req);
+    const lang = langOf(req);
+    const input = req.body.matches ?? req.body;
+    const list = Array.isArray(input) ? input : input && typeof input === 'object' ? [input] : [];
+    if (!list.length || list.some((x) => !x || typeof x !== 'object')) fail(400, 'importEmpty');
+
+    const parsed = list.map((item, i) => {
+      try {
+        return readMatchBody(item);
+      } catch (e) {
+        if (!(e instanceof HttpError)) throw e;
+        fail(400, 'importItem', { n: i + 1, error: translate(lang, e.key, e.params) });
+      }
+    });
+    return tx(() => {
+      const exists = db.prepare('SELECT 1 FROM matches WHERE home = ? AND away = ? AND kickoff = ?');
+      const created = [];
+      let skipped = 0;
+      for (const d of parsed) {
+        if (exists.get(d.home, d.away, d.kickoff)) skipped++;
+        else created.push(insertMatch(d));
+      }
+      return { created: created.length, skipped, ids: created };
+    });
   })
 );
 
@@ -408,10 +475,10 @@ app.put(
   wrap((req) => {
     requireAdmin(req);
     const m = getMatch(req.params.id);
-    if (m.status !== 'open') fail(409, 'Спершу відкрийте матч знову');
+    if (m.status !== 'open') fail(409, 'reopenFirst');
     const d = readMatchBody(req.body, true);
     const hasBets = db.prepare('SELECT 1 FROM predictions WHERE match_id = ?').get(m.id);
-    if (hasBets && d.stake !== undefined && d.stake !== m.stake) fail(409, 'Ставки вже є — розмір ставки не змінити');
+    if (hasBets && d.stake !== undefined && d.stake !== m.stake) fail(409, 'stakeLocked');
     const next = { ...m, ...d };
     db.prepare('UPDATE matches SET home = ?, away = ?, tournament = ?, kickoff = ?, stake = ?, bonus = ? WHERE id = ?').run(
       next.home,
@@ -431,8 +498,7 @@ app.delete(
   wrap((req) => {
     requireAdmin(req);
     const m = getMatch(req.params.id);
-    if (db.prepare('SELECT 1 FROM predictions WHERE match_id = ?').get(m.id))
-      fail(409, 'На матч уже є ставки — краще скасуйте його (бали повернуться)');
+    if (db.prepare('SELECT 1 FROM predictions WHERE match_id = ?').get(m.id)) fail(409, 'hasBetsCancel');
     db.prepare('DELETE FROM matches WHERE id = ?').run(m.id);
     return { ok: true };
   })
@@ -446,29 +512,23 @@ app.post(
     const actual = { home: parseScore(req.body.home), away: parseScore(req.body.away) };
     return tx(() => {
       const m = getMatch(req.params.id);
-      if (m.status !== 'open') fail(409, 'Матч уже закрито');
-      if (Date.now() < Date.parse(m.kickoff) && !req.body.force)
-        fail(409, 'Матч ще не почався. Точно внести результат?');
-      const settings = getSettings();
+      if (m.status !== 'open') fail(409, 'matchClosed');
+      if (Date.now() < Date.parse(m.kickoff) && !req.body.force) fail(409, 'notStarted');
       const predictions = db.prepare('SELECT id, user_id, home, away FROM predictions WHERE match_id = ?').all(m.id);
-      const r = settle({ predictions, actual, stake: m.stake, bonus: m.bonus, jackpot: jackpotBalance(), settings });
+      const r = settle({ predictions, actual, stake: m.stake, bonus: m.bonus, settings: getSettings() });
 
-      const label = `${m.home} ${actual.home}:${actual.away} ${m.away}`;
       const updPred = db.prepare('UPDATE predictions SET tier = ?, payout = ? WHERE id = ?');
-      const addTx = db.prepare('INSERT INTO transactions (user_id, amount, kind, match_id, note) VALUES (?, ?, ?, ?, ?)');
+      const addTx = db.prepare("INSERT INTO transactions (user_id, amount, kind, match_id) VALUES (?, ?, 'payout', ?)");
       for (const row of r.rows) {
         updPred.run(row.tier, row.payout, row.id);
-        if (row.payout) addTx.run(row.user_id, row.payout, 'payout', m.id, `Виграш: ${label}`);
-        if (row.refund) addTx.run(row.user_id, row.refund, 'refund', m.id, `Повернення: ${label}`);
+        if (row.payout) addTx.run(row.user_id, row.payout, m.id);
       }
-      if (r.jackpotIn) db.prepare('INSERT INTO jackpot (amount, match_id, note) VALUES (?, ?, ?)').run(r.jackpotIn, m.id, `Ніхто не вгадав: ${label}`);
-      if (r.jackpotOut) db.prepare('INSERT INTO jackpot (amount, match_id, note) VALUES (?, ?, ?)').run(-r.jackpotOut, m.id, `Джекпот зірвано: ${label}`);
       db.prepare("UPDATE matches SET status = 'finished', home_score = ?, away_score = ? WHERE id = ?").run(
         actual.home,
         actual.away,
         m.id
       );
-      return { ok: true, pot: r.pot, jackpotIn: r.jackpotIn, jackpotOut: r.jackpotOut };
+      return { ok: true, pot: r.pot };
     });
   })
 );
@@ -480,10 +540,10 @@ app.post(
     requireAdmin(req);
     return tx(() => {
       const m = getMatch(req.params.id);
-      if (m.status !== 'open') fail(409, 'Матч уже закрито');
+      if (m.status !== 'open') fail(409, 'matchClosed');
       const preds = db.prepare('SELECT user_id FROM predictions WHERE match_id = ?').all(m.id);
-      const addTx = db.prepare("INSERT INTO transactions (user_id, amount, kind, match_id, note) VALUES (?, ?, 'refund', ?, ?)");
-      for (const p of preds) addTx.run(p.user_id, m.stake, m.id, `Матч скасовано: ${m.home} — ${m.away}`);
+      const addTx = db.prepare("INSERT INTO transactions (user_id, amount, kind, match_id) VALUES (?, ?, 'refund', ?)");
+      for (const p of preds) addTx.run(p.user_id, m.stake, m.id);
       db.prepare("UPDATE matches SET status = 'cancelled' WHERE id = ?").run(m.id);
       return { ok: true };
     });
@@ -497,9 +557,8 @@ app.post(
     requireAdmin(req);
     return tx(() => {
       const m = getMatch(req.params.id);
-      if (m.status === 'open') fail(409, 'Матч і так відкритий');
+      if (m.status === 'open') fail(409, 'alreadyOpen');
       db.prepare("DELETE FROM transactions WHERE match_id = ? AND kind IN ('payout', 'refund')").run(m.id);
-      db.prepare('DELETE FROM jackpot WHERE match_id = ?').run(m.id);
       db.prepare('UPDATE predictions SET tier = NULL, payout = NULL WHERE match_id = ?').run(m.id);
       db.prepare("UPDATE matches SET status = 'open', home_score = NULL, away_score = NULL WHERE id = ?").run(m.id);
       return { ok: true };
@@ -513,9 +572,9 @@ app.get(
     requireAdmin(req);
     return db
       .prepare(
-        `SELECT u.id, u.username, u.is_admin AS isAdmin, u.created_at AS createdAt,
+        `SELECT u.id, u.username, u.is_admin AS isAdmin, u.approved, u.created_at AS createdAt,
            (SELECT COALESCE(SUM(amount),0) FROM transactions t WHERE t.user_id = u.id) AS balance
-         FROM users u ORDER BY u.username`
+         FROM users u ORDER BY u.approved, u.username`
       )
       .all();
   })
@@ -526,13 +585,34 @@ app.post(
   wrap((req) => {
     requireAdmin(req);
     const amount = toCents(req.body.amount);
-    if (!amount) fail(400, 'Вкажіть суму (можна відʼємну)');
-    const note = String(req.body.note || '').trim() || (amount > 0 ? 'Подарунок від адміна' : 'Штраф від адміна');
+    if (!amount) fail(400, 'amountRequired');
     db.prepare("INSERT INTO transactions (user_id, amount, kind, note) VALUES (?, ?, 'admin', ?)").run(
       Number(req.params.id),
       amount,
-      note
+      String(req.body.note || '').trim()
     );
+    return { ok: true };
+  })
+);
+
+app.post(
+  '/api/admin/users/:id/approve',
+  wrap((req) => {
+    requireAdmin(req);
+    db.prepare('UPDATE users SET approved = 1 WHERE id = ?').run(Number(req.params.id));
+    return { ok: true };
+  })
+);
+
+// Reject a sign-up (or remove a player who never bet).
+app.delete(
+  '/api/admin/users/:id',
+  wrap((req) => {
+    const me = requireAdmin(req);
+    const id = Number(req.params.id);
+    if (id === me.id) fail(400, 'cantUnadminSelf');
+    if (db.prepare('SELECT 1 FROM transactions WHERE user_id = ?').get(id)) fail(409, 'cantDeleteUser');
+    db.prepare('DELETE FROM users WHERE id = ?').run(id);
     return { ok: true };
   })
 );
@@ -541,7 +621,7 @@ app.post(
   '/api/admin/users/:id/admin',
   wrap((req) => {
     const me = requireAdmin(req);
-    if (Number(req.params.id) === me.id && !req.body.isAdmin) fail(400, 'Не можна зняти адмінку з себе');
+    if (Number(req.params.id) === me.id && !req.body.isAdmin) fail(400, 'cantUnadminSelf');
     db.prepare('UPDATE users SET is_admin = ? WHERE id = ?').run(req.body.isAdmin ? 1 : 0, Number(req.params.id));
     return { ok: true };
   })
@@ -552,24 +632,34 @@ app.post(
   wrap((req) => {
     requireAdmin(req);
     const password = String(req.body.password || '');
-    if (password.length < 4) fail(400, 'Пароль — мінімум 4 символи');
+    if (password.length < 4) fail(400, 'shortPassword');
     db.prepare('UPDATE users SET password_hash = ? WHERE id = ?').run(bcrypt.hashSync(password, 10), Number(req.params.id));
     return { ok: true };
   })
 );
 
-app.post(
-  '/api/admin/jackpot',
-  wrap((req) => {
+// Full data dump for backups or a quick look (password hashes excluded).
+app.get(
+  '/api/admin/export',
+  wrap((req, res) => {
     requireAdmin(req);
-    const amount = toCents(req.body.amount);
-    if (!amount) fail(400, 'Вкажіть суму');
-    db.prepare('INSERT INTO jackpot (amount, note) VALUES (?, ?)').run(amount, 'Коригування адміном');
-    return { ok: true, jackpot: jackpotBalance() };
+    const dump = {
+      exportedAt: new Date().toISOString(),
+      version: VERSION,
+      settings: getSettings(),
+      users: db.prepare('SELECT id, username, is_admin, created_at FROM users ORDER BY id').all(),
+      matches: db.prepare('SELECT * FROM matches ORDER BY id').all(),
+      predictions: db.prepare('SELECT * FROM predictions ORDER BY id').all(),
+      transactions: db.prepare('SELECT * FROM transactions ORDER BY id').all(),
+      comments: db.prepare('SELECT * FROM comments ORDER BY id').all(),
+    };
+    const date = dump.exportedAt.slice(0, 10);
+    res.setHeader('Content-Disposition', `attachment; filename="bett-${date}.json"`);
+    res.type('application/json').send(JSON.stringify(dump, null, 2));
   })
 );
 
-app.use('/api', (req, res) => res.status(404).json({ error: 'VAR не знайшов такого ендпоінту' }));
+app.use('/api', (req, res, next) => next(new HttpError(404, 'notFound')));
 
 // ---------- frontend ----------
 
@@ -580,8 +670,11 @@ if (fs.existsSync(dist)) {
 }
 
 app.use((err, req, res, _next) => {
-  if (!(err instanceof HttpError)) console.error(err);
-  res.status(err.status || 500).json({ error: err instanceof HttpError ? err.message : 'Щось зламалось 🙈' });
+  const lang = langOf(req);
+  if (err instanceof HttpError) return res.status(err.status).json({ error: translate(lang, err.key, err.params) });
+  if (err.type === 'entity.parse.failed') return res.status(400).json({ error: translate(lang, 'importEmpty') });
+  console.error(err);
+  res.status(500).json({ error: translate(lang, 'serverError') });
 });
 
 app.listen(PORT, () => console.log(`⚽ Kumbet: http://localhost:${PORT}`));

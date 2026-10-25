@@ -1,33 +1,41 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { api, pts } from '../api.js';
+import { api, signedPts } from '../api.js';
+import { useI18n } from '../i18n.jsx';
 
-const KIND = { start: '🎁', stake: '🎟️', payout: '🏆', refund: '↩️', admin: '🧙', jackpot: '🎰' };
+const KIND = { stake: '🎟️', payout: '🏆', refund: '↩️', admin: '🧙' };
 
 export default function History() {
+  const { t, locale } = useI18n();
   const [rows, setRows] = useState(null);
   useEffect(() => {
     api.get('/api/history').then(setRows);
   }, []);
   if (!rows) return <div className="loading">⚽</div>;
+
+  const describe = (r) => {
+    if (r.kind === 'admin') return r.note || t('history.admin');
+    if (!r.home) return r.note || t('history.legacy');
+    const score = r.homeScore != null ? ` ${r.homeScore}:${r.awayScore} ` : ' — ';
+    const match = `${r.home}${score}${r.away}`;
+    return t('history.' + r.kind, { match });
+  };
+
   return (
     <section>
-      <h2>Історія балансу</h2>
+      <h2>{t('history.title')}</h2>
       {rows.length === 0 ? (
-        <p className="muted">Поки порожньо.</p>
+        <p className="muted">{t('history.empty')}</p>
       ) : (
         <ul className="card history">
           {rows.map((r, i) => (
             <li key={i}>
               <span className="kind">{KIND[r.kind] || '•'}</span>
               <span className="note">
-                {r.match_id ? <Link to={`/match/${r.match_id}`}>{r.note}</Link> : r.note}
-                <span className="muted small"> · {new Date(r.created_at + 'Z').toLocaleString('uk-UA')}</span>
+                {r.matchId ? <Link to={`/match/${r.matchId}`}>{describe(r)}</Link> : describe(r)}
+                <span className="muted small"> · {new Date(r.createdAt + 'Z').toLocaleString(locale)}</span>
               </span>
-              <span className={r.amount > 0 ? 'win' : 'lose'}>
-                {r.amount > 0 ? '+' : ''}
-                {pts(r.amount)}
-              </span>
+              <span className={r.amount > 0 ? 'win' : 'lose'}>{signedPts(r.amount)}</span>
             </li>
           ))}
         </ul>

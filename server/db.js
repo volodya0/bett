@@ -50,7 +50,7 @@ CREATE TABLE IF NOT EXISTS predictions (
 );
 
 -- Ledger: a user's balance is the sum of their rows.
--- kind: start | stake | payout | refund | jackpot | admin
+-- kind: stake | payout | refund | admin
 CREATE TABLE IF NOT EXISTS transactions (
   id INTEGER PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -61,32 +61,40 @@ CREATE TABLE IF NOT EXISTS transactions (
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
 
--- Jackpot: pots of matches where nobody scored anything.
-CREATE TABLE IF NOT EXISTS jackpot (
+CREATE TABLE IF NOT EXISTS comments (
   id INTEGER PRIMARY KEY,
-  amount INTEGER NOT NULL,
-  match_id INTEGER REFERENCES matches(id) ON DELETE SET NULL,
-  note TEXT NOT NULL DEFAULT '',
+  match_id INTEGER NOT NULL REFERENCES matches(id) ON DELETE CASCADE,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  text TEXT NOT NULL,
   created_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE INDEX IF NOT EXISTS comments_match ON comments(match_id);
 
 CREATE TABLE IF NOT EXISTS settings (
   key TEXT PRIMARY KEY,
   value TEXT NOT NULL
 );
+
+-- Migration: no starting balances and no jackpot anymore — everyone starts at 0.
+DELETE FROM transactions WHERE kind IN ('start', 'jackpot');
+DROP TABLE IF EXISTS jackpot;
+DELETE FROM settings WHERE key IN ('startingBalance', 'noWinnerPolicy', 'allowDebt');
 `);
+
+// Migration: approval flag on users (existing users count as approved).
+if (!db.prepare('PRAGMA table_info(users)').all().some((c) => c.name === 'approved')) {
+  db.exec('ALTER TABLE users ADD COLUMN approved INTEGER NOT NULL DEFAULT 1');
+}
 
 export const DEFAULT_SETTINGS = {
   siteName: 'Кумівський тоталізатор',
-  startingBalance: 10,   // points granted on sign-up
   defaultStake: 1,       // default stake for new matches
   wExact: 10,            // weight for the exact score
   wDiff: 4,              // right winner and goal difference (2:1 vs 3:2, 1:1 vs 2:2)
   wOutcome: 2,           // right outcome only (home / draw / away)
   wNear: 1,              // wrong outcome, but off by a single goal
-  noWinnerPolicy: 'jackpot', // jackpot | refund
   inviteCode: '',        // if set, required to register
-  allowDebt: false,      // allow betting with insufficient balance
+  requireApproval: false, // new sign-ups must be approved by an admin
 };
 
 export function getSettings() {
