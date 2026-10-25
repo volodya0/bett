@@ -12,6 +12,7 @@ import { translate } from './messages.js';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
 const VERSION = process.env.APP_VERSION || 'dev';
+const IS_TEST = process.env.APP_ENV === 'test';
 const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '')
   .split(',')
   .map((s) => s.trim().toLowerCase())
@@ -164,6 +165,7 @@ app.get(
       pendingCount: u?.is_admin ? db.prepare('SELECT COUNT(*) AS c FROM users WHERE approved = 0').get().c : 0,
       siteName: s.siteName,
       version: VERSION,
+      isTest: IS_TEST,
       inviteRequired: !!s.inviteCode,
     };
   })

@@ -16,7 +16,7 @@ const MeContext = createContext(null);
 export const useMe = () => useContext(MeContext);
 
 export default function App() {
-  const { lang } = useI18n();
+  const { lang, t } = useI18n();
   const [me, setMe] = useState(null);
   const refresh = useCallback(() => api.get('/api/me').then(setMe).catch(() => setMe({ user: null })), []);
 
@@ -37,8 +37,8 @@ export default function App() {
   }, [refresh]);
 
   useEffect(() => {
-    if (me?.siteName) document.title = me.siteName;
-  }, [me?.siteName]);
+    if (me?.siteName) document.title = (me.isTest ? `[${t('test.badge')}] ` : '') + me.siteName;
+  }, [me?.siteName, me?.isTest]);
   useEffect(() => {
     document.documentElement.lang = lang;
   }, [lang]);
@@ -83,7 +83,7 @@ function MatchRedirect() {
 }
 
 function Header() {
-  const { user, siteName, pendingCount, refresh } = useMe();
+  const { user, siteName, pendingCount, isTest, refresh } = useMe();
   const { t } = useI18n();
 
   const logout = async () => {
@@ -97,6 +97,7 @@ function Header() {
         <Link to="/" className="logo">
           <span className="ball">⚽</span>
           <span className="logo-text">{siteName}</span>
+          {isTest && <span className="test-badge">{t('test.badge')}</span>}
         </Link>
         <div className="wallet">
           {user && (

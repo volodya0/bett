@@ -29,7 +29,7 @@ fi
 
 command -v sqlite3 >/dev/null || { apt-get update -qq && apt-get install -y -qq sqlite3; }
 
-mkdir -p "$APP_DIR/data" "$APP_DIR/backups"
+mkdir -p "$APP_DIR/backups"
 chown -R "$DEPLOY_USER:$DEPLOY_USER" "$APP_DIR"
 
 # Daily backup at 04:17.

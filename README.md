@@ -41,7 +41,7 @@ A match with the same teams and kickoff as an existing one is skipped.
 
 ## Data
 
-Everything lives in one SQLite file (`/opt/kumbet/data/kumbet.db` on the server).
+Each copy keeps everything in one SQLite file (`/opt/kumbet/prod/data/kumbet.db` and `/opt/kumbet/test/data/kumbet.db` on the server).
 Admin → Settings → "Export JSON" downloads the whole database (no password hashes); amounts are in hundredths of a point.
 
 ## Local development
@@ -58,8 +58,9 @@ Production mode: `npm run build && npm start` → http://localhost:3000
 
 ## Deployment
 
-The main setup is a free Google Cloud e2-micro VM with auto-deploy via GitHub Actions
-(every push to `main` updates the site). Step-by-step guide: **[DEPLOY.md](DEPLOY.md)**.
+The main setup is a free Google Cloud e2-micro VM running a **test** and a **production** copy with separate
+databases. Every push to `main` updates test automatically; production is updated with the manual
+"Deploy production" workflow. Step-by-step guide: **[DEPLOY.md](DEPLOY.md)**.
 
 The app also runs on any host with Docker and a persistent disk (Railway, Fly.io, a VPS):
 ```bash
@@ -74,4 +75,5 @@ To back up, copy `/data/kumbet.db`.
 | `PORT` | port (default 3000) |
 | `DATA_DIR` | database directory (`/data` in Docker) |
 | `ADMIN_USERNAMES` | usernames that become admins on sign-up |
+| `APP_ENV` | `test` shows the TEST badge |
 | `SESSION_SECRET` | session secret (if unset, generated and stored in `DATA_DIR`) |

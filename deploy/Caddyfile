@@ -1,4 +1,9 @@
 {$DOMAIN} {
 	encode gzip
-	reverse_proxy app:3000
+	reverse_proxy app-prod:3000
+}
+
+test.{$DOMAIN} {
+	encode gzip
+	reverse_proxy app-test:3000
 }

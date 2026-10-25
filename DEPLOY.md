@@ -1,8 +1,15 @@
 # 🚀 Deploying to Google Cloud (free e2-micro)
 
-Once set up, every `git push` to `main` updates the site automatically in about 2–3 minutes:
-GitHub Actions runs the tests, builds the Docker image, backs up the database, copies the image to the VM and checks that the site is alive.
-The version (short commit hash) is shown in the site footer, so you can see the update landed.
+The VM runs two copies of the app, each with its own database:
+
+| Copy | Address | Updated by |
+|---|---|---|
+| **Test** | `https://test.<domain>` | every `git push` to `main` (automatic, ~2–3 min) |
+| **Production** | `https://<domain>` | **Actions → Deploy production → Run workflow** — ships the exact build that is on test |
+
+`<domain>` is your own domain if you set the `DOMAIN` secret, otherwise `34-123-45-67.sslip.io` (the VM IP with dashes).
+The test copy shows a red **TEST** badge in the header. Each deploy backs up the database it touches;
+the version (short commit hash) is shown in the site footer.
 
 Setup is done once and takes about 20 minutes, all in the browser — nothing to install.
 
@@ -53,10 +60,11 @@ Then delete the keys from Cloud Shell: `rm deploy_key deploy_key.pub`.
 
 ## Step 4. First deploy
 
-Push to `main`, or open **Actions → Deploy → Run workflow**.
-The first run takes longer (~5 min) because Docker gets installed on the VM. At the end, Actions shows a link to the site.
+Push to `main`, or open **Actions → Deploy test → Run workflow**.
+The first run takes longer (~5 min) because Docker gets installed on the VM. The first deploy also starts production
+from the same build. At the end, Actions shows a link to the test site.
 
-Open the site and **register first**: the first user becomes admin.
+Open each site and **register first**: in each copy the first user becomes admin (or use `ADMIN_USERNAMES`).
 
 ---
 
@@ -64,12 +72,14 @@ Open the site and **register first**: the first user becomes admin.
 
 | Task | How |
 |---|---|
-| Update the site | `git push` to `main`, wait ~2–3 min |
+| Update the test site | `git push` to `main`, wait ~2–3 min |
+| Ship to production | Actions → **Deploy production** → Run workflow |
 | Watch a deploy | the **Actions** tab on GitHub |
-| Redeploy without changes | Actions → Deploy → **Run workflow** |
-| Roll back to an older version | `git revert <commit>` and push |
-| App logs | Compute Engine → **SSH** button next to the VM → `cd /opt/kumbet && docker compose logs -f app` |
-| Backups | `/opt/kumbet/backups/`: daily at 04:17 and before every deploy, kept for 30 days |
+| Redeploy test without changes | Actions → Deploy test → **Run workflow** |
+| Roll back | `git revert <commit>`, push, check on test, then Deploy production |
+| App logs | Compute Engine → **SSH** button next to the VM → `cd /opt/kumbet && docker compose logs -f app-prod` (or `app-test`) |
+| Databases | `/opt/kumbet/prod/data/kumbet.db` and `/opt/kumbet/test/data/kumbet.db` |
+| Backups | `/opt/kumbet/backups/` (`prod-…`, `test-…`): daily at 04:17 and before every deploy, kept for 30 days |
 | Download a backup | in the SSH window: gear ⚙️ → **Download file** → `/opt/kumbet/backups/…` |
 
 ## Troubleshooting

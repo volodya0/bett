@@ -1,5 +1,6 @@
-# Every push to main: tests → (if the server is configured) build Docker image → copy to VM → restart → health check.
-name: Deploy
+# Every push to main: tests → (if the server is configured) build the image and deploy it to the TEST copy
+# (https://test.<domain>). Production is updated separately by the "Deploy production" workflow.
+name: Deploy test
 
 on:
   push:
@@ -65,7 +66,7 @@ jobs:
         with:
           context: .
           build-args: APP_VERSION=${{ env.VERSION }}
-          tags: kumbet:latest
+          tags: kumbet:test
           outputs: type=docker,dest=/tmp/kumbet.tar
           cache-from: type=gha
           cache-to: type=gha,mode=max
@@ -85,25 +86,30 @@ jobs:
       - name: Deploy
         run: |
           gzip -1 /tmp/kumbet.tar
-          scp /tmp/kumbet.tar.gz deploy/docker-compose.yml deploy/Caddyfile deploy/backup.sh "$VM_USER@$VM_HOST:/opt/kumbet/"
+          scp /tmp/kumbet.tar.gz deploy/docker-compose.yml deploy/Caddyfile deploy/backup.sh deploy/migrate.sh "$VM_USER@$VM_HOST:/opt/kumbet/"
           ssh "$VM_USER@$VM_HOST" bash -se <<EOF
             set -euo pipefail
             cd /opt/kumbet
-            chmod +x backup.sh
+            chmod +x backup.sh migrate.sh
+            ./migrate.sh
             printf 'DOMAIN=%s\nADMIN_USERNAMES=%s\n' "$DOMAIN" "${{ secrets.ADMIN_USERNAMES }}" > .env
-            ./backup.sh predeploy
+            ./backup.sh predeploy test
             gunzip -c kumbet.tar.gz | docker load
             rm kumbet.tar.gz
+            # The very first time there is no production image yet: start prod from this build.
+            docker image inspect kumbet:prod >/dev/null 2>&1 || docker tag kumbet:test kumbet:prod
             docker compose up -d --remove-orphans
+            docker compose restart caddy
             docker image prune -f >/dev/null
           EOF
 
       - name: Health check
         run: |
           for i in $(seq 1 30); do
-            if curl -fsS "https://$DOMAIN/api/health" | grep -q "\"$VERSION\""; then
-              echo "✅ Version $VERSION is live: https://$DOMAIN"
-              echo "### ✅ Deployed $VERSION → https://$DOMAIN" >> "$GITHUB_STEP_SUMMARY"
+            if curl -fsS "https://test.$DOMAIN/api/health" | grep -q "\"$VERSION\""; then
+              echo "✅ Version $VERSION is live on test: https://test.$DOMAIN"
+              echo "### ✅ Deployed $VERSION → https://test.$DOMAIN" >> "$GITHUB_STEP_SUMMARY"
+              echo "Check it, then run **Actions → Deploy production** to ship it to https://$DOMAIN" >> "$GITHUB_STEP_SUMMARY"
               exit 0
             fi
             sleep 5

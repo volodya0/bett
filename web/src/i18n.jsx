@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useMemo, useState } from
 
 const uk = {
   // nav & layout
+  'test.badge': 'ТЕСТ',
   'nav.matches': 'Головна',
   'nav.history': 'Історія',
   'nav.rules': 'Правила',
@@ -240,6 +241,7 @@ const uk = {
 };
 
 const en = {
+  'test.badge': 'TEST',
   'nav.matches': 'Home',
   'nav.history': 'History',
   'nav.rules': 'Rules',

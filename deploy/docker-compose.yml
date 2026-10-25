@@ -1,14 +1,27 @@
-# Runs on the VM in /opt/kumbet. The kumbet:latest image is loaded by GitHub Actions.
+# Runs on the VM in /opt/kumbet: two copies of the app with separate databases.
+#   app-prod → https://$DOMAIN        (image kumbet:prod, data in ./prod/data)
+#   app-test → https://test.$DOMAIN   (image kumbet:test, data in ./test/data)
+# GitHub Actions loads kumbet:test on every push to main; the "Deploy production"
+# workflow retags the tested image as kumbet:prod.
 services:
-  app:
-    image: kumbet:latest
+  app-prod:
+    image: kumbet:prod
     restart: unless-stopped
     volumes:
-      - ./data:/data
+      - ./prod/data:/data
     environment:
       ADMIN_USERNAMES: ${ADMIN_USERNAMES:-}
 
-  # Caddy obtains and renews the HTTPS certificate automatically.
+  app-test:
+    image: kumbet:test
+    restart: unless-stopped
+    volumes:
+      - ./test/data:/data
+    environment:
+      ADMIN_USERNAMES: ${ADMIN_USERNAMES:-}
+      APP_ENV: test
+
+  # Caddy obtains and renews the HTTPS certificates automatically.
   caddy:
     image: caddy:2-alpine
     restart: unless-stopped
@@ -22,7 +35,8 @@ services:
       - caddy_data:/data
       - caddy_config:/config
     depends_on:
-      - app
+      - app-prod
+      - app-test
 
 volumes:
   caddy_data:

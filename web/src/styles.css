@@ -60,6 +60,7 @@ main.container { padding-top: 10px; padding-bottom: 24px; min-height: 60vh; }
 .header-inner { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding-top: 6px; padding-bottom: 2px; }
 .logo { color: var(--text); display: flex; align-items: center; gap: 6px; font-weight: 700; font-size: 1.05rem; }
 .ball { font-size: 1.1rem; }
+.test-badge { border: 1px solid var(--red); color: var(--red); border-radius: var(--radius); font-size: 0.72rem; font-weight: 700; padding: 0 5px; letter-spacing: 0.05em; }
 .wallet { display: flex; gap: 6px; flex-shrink: 0; align-items: center; }
 .balance { border: 1px solid var(--green); color: var(--green); padding: 1px 8px; border-radius: var(--radius); font-weight: 700; white-space: nowrap; font-variant-numeric: tabular-nums; }
 .balance.negative { border-color: var(--red); color: var(--red); }

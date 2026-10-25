@@ -1,0 +1,62 @@
+# Manual: ships the build currently on the test copy to production.
+# Actions → Deploy production → Run workflow.
+name: Deploy production
+
+on:
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  promote:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      VM_HOST: ${{ secrets.VM_HOST }}
+      VM_USER: ${{ secrets.VM_USER || 'deploy' }}
+    steps:
+      - name: Site address
+        run: |
+          DOMAIN="${{ secrets.DOMAIN }}"
+          [ -z "$DOMAIN" ] && DOMAIN="${VM_HOST//./-}.sslip.io"
+          echo "DOMAIN=$DOMAIN" >> "$GITHUB_ENV"
+
+      - name: Version on test
+        run: |
+          VERSION=$(curl -fsS "https://test.$DOMAIN/api/health" | python3 -c "import json,sys; print(json.load(sys.stdin)['version'])")
+          echo "VERSION=$VERSION" >> "$GITHUB_ENV"
+          echo "Promoting $VERSION"
+
+      - name: SSH key
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$VM_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Promote test → production
+        run: |
+          ssh "$VM_USER@$VM_HOST" bash -se <<'EOF'
+            set -euo pipefail
+            cd /opt/kumbet
+            ./backup.sh predeploy prod
+            docker tag kumbet:test kumbet:prod
+            docker compose up -d app-prod
+            docker image prune -f >/dev/null
+          EOF
+
+      - name: Health check
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS "https://$DOMAIN/api/health" | grep -q "\"$VERSION\""; then
+              echo "✅ Version $VERSION is live: https://$DOMAIN"
+              echo "### ✅ Production is now $VERSION → https://$DOMAIN" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "❌ Production is not responding. Recent logs:"
+          ssh "$VM_USER@$VM_HOST" "cd /opt/kumbet && docker compose logs --tail=80 app-prod"
+          exit 1
