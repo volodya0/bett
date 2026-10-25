@@ -34,13 +34,14 @@ export default function MatchCard({ m, now, onChange }) {
               : t('match.inPlay')}
       </div>
 
-      {open && <PredictForm m={m} onDone={onChange} />}
       {m.my && m.status === 'finished' && <MyResult my={m.my} />}
 
       <div className="people-block">
-        {!m.locked && <p className="muted small">{t('match.hiddenNote')}</p>}
         {m.people.length === 0 ? <p className="muted small">{t('match.nobody')}</p> : <ParticipantList list={m.people} m={m} />}
       </div>
+
+      {open && <PredictForm m={m} onDone={onChange} />}
+      {open && <p className="muted small hint">{t('match.hiddenNote')}</p>}
 
       <Comments matchId={m.id} count={m.comments} />
     </article>
@@ -70,19 +71,8 @@ function PredictForm({ m, onDone }) {
     }
   };
 
-  const withdraw = async () => {
-    if (!confirm(t('predict.withdrawConfirm'))) return;
-    try {
-      await api.del(`/api/matches/${m.id}/predict`);
-      toast(t('predict.withdrawn'));
-      onDone();
-    } catch (err) {
-      setError(err.message);
-    }
-  };
-
   return (
-    <form className="predict" onSubmit={save}>
+    <form className={'predict' + (m.my ? ' has-bet' : '')} onSubmit={save}>
       <div className="predict-label">{m.my ? t('predict.titleEdit') : t('predict.title')}</div>
       <div className="predict-row">
         <div className="score-pair">
@@ -91,13 +81,14 @@ function PredictForm({ m, onDone }) {
           <ScoreInput value={away} onChange={setAway} />
         </div>
         <div className="predict-actions">
-          {(changed || !m.my) && (
-            <button className="btn primary" disabled={busy}>
-              {m.my ? t('predict.update') : t('predict.place', { stake: pts(m.stake) })}
-            </button>
-          )}
-          {m.my && (
-            <button type="button" className="btn ghost" onClick={withdraw}>{t('predict.withdraw')}</button>
+          {!m.my ? (
+            <button className="btn primary" disabled={busy}>{t('predict.place')}</button>
+          ) : (
+            changed && (
+              <button className="btn primary icon-btn" disabled={busy} title={t('predict.update')} aria-label={t('predict.update')}>
+                <CheckIcon />
+              </button>
+            )
           )}
         </div>
       </div>
@@ -105,6 +96,12 @@ function PredictForm({ m, onDone }) {
     </form>
   );
 }
+
+const CheckIcon = () => (
+  <svg width="14" height="14" viewBox="0 0 16 16" aria-hidden="true">
+    <path d="M2.5 8.5l3.5 3.5 7.5-8" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round" />
+  </svg>
+);
 
 function ScoreInput({ value, onChange }) {
   const v = Number(value) || 0;

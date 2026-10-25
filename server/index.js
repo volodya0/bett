@@ -285,21 +285,6 @@ app.post(
   })
 );
 
-app.delete(
-  '/api/matches/:id/predict',
-  wrap((req) => {
-    const u = requireUser(req);
-    return tx(() => {
-      const m = getMatch(req.params.id);
-      if (isLocked(m)) fail(409, 'cantWithdraw');
-      db.prepare('DELETE FROM predictions WHERE match_id = ? AND user_id = ?').run(m.id, u.id);
-      db.prepare("DELETE FROM transactions WHERE match_id = ? AND user_id = ? AND kind = 'stake'").run(m.id, u.id);
-      logEvent(u.id, 'bet_withdraw', matchLabel(m));
-      return { ok: true, balance: balanceOf(u.id) };
-    });
-  })
-);
-
 // Page views from the client. Repeats of the same page within a minute are skipped.
 app.post(
   '/api/log',

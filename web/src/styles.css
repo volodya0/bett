@@ -146,6 +146,8 @@ label.checkbox input { width: auto; }
 .colon { font-size: 1.1rem; font-weight: 700; }
 .predict-actions { display: flex; gap: 6px; }
 .predict-actions .btn { height: 28px; padding-top: 0; padding-bottom: 0; }
+.icon-btn { width: 28px; padding: 0 !important; display: inline-flex; align-items: center; justify-content: center; }
+.hint { margin: -2px 0 0; text-align: center; }
 
 /* [− 2 +] as one segmented control: every part is the same height */
 .score-input { display: flex; height: 28px; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
@@ -159,9 +161,11 @@ label.checkbox input { width: auto; }
 .score-input input::-webkit-inner-spin-button,
 .score-input input::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
 @media (max-width: 560px) {
-  .predict-row { grid-template-columns: 1fr; }
-  .predict-row .score-pair,
-  .predict-row .predict-actions { grid-column: 1; justify-self: center; }
+  /* New bet: the button goes under the score. Existing bet: the small
+     update icon stays on the same row. */
+  .predict:not(.has-bet) .predict-row { grid-template-columns: 1fr; }
+  .predict:not(.has-bet) .predict-row .score-pair,
+  .predict:not(.has-bet) .predict-row .predict-actions { grid-column: 1; justify-self: center; }
 }
 
 .my-result { border: 1px solid var(--border); border-radius: var(--radius); padding: 4px 8px; background: transparent; font-size: 0.9rem; }
