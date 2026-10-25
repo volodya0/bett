@@ -1,4 +1,4 @@
-# Кожен push у main: тести → збірка Docker-образу → копіювання на VM → перезапуск → перевірка.
+# Кожен push у main: тести → (якщо сервер налаштований) збірка Docker-образу → копіювання на VM → перезапуск → перевірка.
 name: Deploy
 
 on:
@@ -11,12 +11,10 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  deploy:
+  test:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      VM_HOST: ${{ secrets.VM_HOST }}
-      VM_USER: ${{ secrets.VM_USER || 'deploy' }}
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
     steps:
       - uses: actions/checkout@v4
 
@@ -27,6 +25,30 @@ jobs:
 
       - name: Тести
         run: npm ci && npm test
+
+      - name: Чи налаштований сервер
+        id: check
+        env:
+          VM_HOST: ${{ secrets.VM_HOST }}
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          if [ -n "$VM_HOST" ] && [ -n "$VM_SSH_KEY" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "### ⏭️ Деплой пропущено: секрети VM_HOST і VM_SSH_KEY ще не додані (див. DEPLOY.md)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  deploy:
+    needs: test
+    if: needs.test.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VM_HOST: ${{ secrets.VM_HOST }}
+      VM_USER: ${{ secrets.VM_USER || 'deploy' }}
+    steps:
+      - uses: actions/checkout@v4
 
       - name: Адреса сайту
         run: |
