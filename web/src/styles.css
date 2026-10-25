@@ -234,6 +234,9 @@ section.card > .comments { border-top: 0; padding-top: 0; }
 .json-input { width: 100%; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; padding: 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--bg); color: var(--text); resize: vertical; }
 .json-input:focus { outline: 2px solid var(--green); outline-offset: -1px; }
 .import-preview { margin: 6px 0 0; padding-left: 20px; }
+.ai-prompt { border-top: 1px dashed var(--border); padding-top: 10px; }
+.ai-prompt summary { cursor: pointer; font-weight: 600; color: var(--green); }
+.ai-prompt pre { white-space: pre-wrap; background: var(--bg); border: 1px solid var(--border); border-radius: 8px; padding: 10px; font-size: 0.82rem; max-height: 320px; overflow: auto; }
 .pending-row { background: #fff8e1; }
 @media (prefers-color-scheme: dark) { .pending-row { background: #3a3220; } }
 

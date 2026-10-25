@@ -202,7 +202,35 @@ function JsonImport({ onDone }) {
       <div className="row">
         <button className="btn primary" disabled={!parsed?.list}>{t('admin.importButton')}</button>
       </div>
+      <AiPrompt />
     </form>
+  );
+}
+
+function AiPrompt() {
+  const { t } = useI18n();
+  const prompt = t('admin.aiPrompt');
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(prompt);
+    } catch {
+      // Fallback for browsers without clipboard API access.
+      const ta = document.createElement('textarea');
+      ta.value = prompt;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      ta.remove();
+    }
+    toast(t('admin.aiCopied'));
+  };
+  return (
+    <details className="ai-prompt">
+      <summary>{t('admin.aiTitle')}</summary>
+      <p className="muted small">{t('admin.aiHint')}</p>
+      <pre>{prompt}</pre>
+      <button type="button" className="btn ghost small-btn" onClick={copy}>📋 {t('admin.aiCopy')}</button>
+    </details>
   );
 }
 

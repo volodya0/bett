@@ -153,6 +153,29 @@ const uk = {
   'admin.importPreview': 'Буде додано: {n}',
   'admin.importInvalid': 'Невалідний JSON: {error}',
   'admin.importButton': 'Імпортувати',
+  'admin.aiTitle': '🤖 Промпт для AI',
+  'admin.aiHint': 'Скопіюй, встав у ChatGPT / Claude разом із посиланням на матч — і встав сюди JSON, який він поверне.',
+  'admin.aiCopy': 'Скопіювати',
+  'admin.aiCopied': 'Скопійовано 📋',
+  'admin.aiPrompt': `Зроби JSON для імпорту футбольних матчів на мій сайт.
+
+Матчі: [ВСТАВ ПОСИЛАННЯ АБО ОПИС МАТЧІВ]
+
+Формат — масив обʼєктів, без пояснень і без markdown, тільки чистий JSON:
+[
+  {
+    "home": "Назва господарів",
+    "away": "Назва гостей",
+    "tournament": "Турнір, тур (коротко)",
+    "kickoff": "2026-11-01T19:00:00+02:00"
+  }
+]
+
+Правила:
+- "kickoff" — точний час початку в ISO 8601 ОБОВʼЯЗКОВО з часовим поясом. Використовуй київський час: +02:00 взимку, +03:00 влітку.
+- Назви команд — українською, як їх зазвичай пишуть (напр. "Динамо Київ", "Реал Мадрид").
+- Якщо не впевнений у даті чи часі — перевір на офіційному сайті турніру; не вигадуй.
+- Поля "stake" і "bonus" не додавай, якщо я окремо не попрошу.`,
   'admin.importDone': 'Додано: {created}, пропущено дублікатів: {skipped}',
   'admin.playersTitle': 'Гравці ({n})',
   'admin.colUser': 'Логін',
@@ -336,6 +359,29 @@ const en = {
   'admin.importPreview': 'Will add: {n}',
   'admin.importInvalid': 'Invalid JSON: {error}',
   'admin.importButton': 'Import',
+  'admin.aiTitle': '🤖 Prompt for AI',
+  'admin.aiHint': 'Copy it into ChatGPT / Claude together with a link to the match, then paste the JSON it returns here.',
+  'admin.aiCopy': 'Copy',
+  'admin.aiCopied': 'Copied 📋',
+  'admin.aiPrompt': `Build JSON for importing football matches into my site.
+
+Matches: [PASTE A LINK OR DESCRIBE THE MATCHES]
+
+Format — an array of objects, no explanations and no markdown, just plain JSON:
+[
+  {
+    "home": "Home team",
+    "away": "Away team",
+    "tournament": "Competition, round (short)",
+    "kickoff": "2026-11-01T19:00:00+02:00"
+  }
+]
+
+Rules:
+- "kickoff" is the exact start time in ISO 8601 and MUST include a time zone offset. Use Kyiv time: +02:00 in winter, +03:00 in summer.
+- Team names as they are commonly written (e.g. "Dynamo Kyiv", "Real Madrid").
+- If you're unsure about a date or time, check the competition's official site; don't make it up.
+- Don't add "stake" or "bonus" unless I ask.`,
   'admin.importDone': 'Added: {created}, duplicates skipped: {skipped}',
   'admin.playersTitle': 'Players ({n})',
   'admin.colUser': 'Username',
