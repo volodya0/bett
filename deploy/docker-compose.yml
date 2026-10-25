@@ -1,0 +1,29 @@
+# Запускається на VM у /opt/kumbet. Образ kumbet:latest завантажує GitHub Actions.
+services:
+  app:
+    image: kumbet:latest
+    restart: unless-stopped
+    volumes:
+      - ./data:/data
+    environment:
+      ADMIN_USERNAMES: ${ADMIN_USERNAMES:-}
+
+  # Caddy сам отримує й оновлює HTTPS-сертифікат.
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - app
+
+volumes:
+  caddy_data:
+  caddy_config:

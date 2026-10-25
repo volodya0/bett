@@ -1,0 +1,113 @@
+# Кожен push у main: тести → (якщо сервер налаштований) збірка Docker-образу → копіювання на VM → перезапуск → перевірка.
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    outputs:
+      ready: ${{ steps.check.outputs.ready }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Тести
+        run: npm ci && npm test
+
+      - name: Чи налаштований сервер
+        id: check
+        env:
+          VM_HOST: ${{ secrets.VM_HOST }}
+          VM_SSH_KEY: ${{ secrets.VM_SSH_KEY }}
+        run: |
+          if [ -n "$VM_HOST" ] && [ -n "$VM_SSH_KEY" ]; then
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+            echo "### ⏭️ Деплой пропущено: секрети VM_HOST і VM_SSH_KEY ще не додані (див. DEPLOY.md)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  deploy:
+    needs: test
+    if: needs.test.outputs.ready == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      VM_HOST: ${{ secrets.VM_HOST }}
+      VM_USER: ${{ secrets.VM_USER || 'deploy' }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Адреса сайту
+        run: |
+          DOMAIN="${{ secrets.DOMAIN }}"
+          # Без власного домену використовуємо безкоштовний sslip.io: 34.1.2.3 → 34-1-2-3.sslip.io
+          [ -z "$DOMAIN" ] && DOMAIN="${VM_HOST//./-}.sslip.io"
+          echo "DOMAIN=$DOMAIN" >> "$GITHUB_ENV"
+          echo "VERSION=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+
+      - uses: docker/setup-buildx-action@v3
+
+      - name: Збірка образу
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          build-args: APP_VERSION=${{ env.VERSION }}
+          tags: kumbet:latest
+          outputs: type=docker,dest=/tmp/kumbet.tar
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: SSH-ключ
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.VM_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          ssh-keyscan -H "$VM_HOST" >> ~/.ssh/known_hosts 2>/dev/null
+
+      - name: Налаштування VM (лише перший раз)
+        run: |
+          scp deploy/bootstrap.sh "$VM_USER@$VM_HOST:/tmp/bootstrap.sh"
+          ssh "$VM_USER@$VM_HOST" "sudo bash /tmp/bootstrap.sh $VM_USER"
+
+      - name: Деплой
+        run: |
+          gzip -1 /tmp/kumbet.tar
+          scp /tmp/kumbet.tar.gz deploy/docker-compose.yml deploy/Caddyfile deploy/backup.sh "$VM_USER@$VM_HOST:/opt/kumbet/"
+          ssh "$VM_USER@$VM_HOST" bash -se <<EOF
+            set -euo pipefail
+            cd /opt/kumbet
+            chmod +x backup.sh
+            printf 'DOMAIN=%s\nADMIN_USERNAMES=%s\n' "$DOMAIN" "${{ secrets.ADMIN_USERNAMES }}" > .env
+            ./backup.sh predeploy
+            gunzip -c kumbet.tar.gz | docker load
+            rm kumbet.tar.gz
+            docker compose up -d --remove-orphans
+            docker image prune -f >/dev/null
+          EOF
+
+      - name: Перевірка, що сайт живий
+        run: |
+          for i in $(seq 1 30); do
+            if curl -fsS "https://$DOMAIN/api/health" | grep -q "\"$VERSION\""; then
+              echo "✅ Версія $VERSION працює: https://$DOMAIN"
+              echo "### ✅ Задеплоєно $VERSION → https://$DOMAIN" >> "$GITHUB_STEP_SUMMARY"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "❌ Сайт не відповідає. Останні логи:"
+          ssh "$VM_USER@$VM_HOST" "cd /opt/kumbet && docker compose logs --tail=80"
+          exit 1
