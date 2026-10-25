@@ -24,27 +24,14 @@ export default function MatchCard({ m, now, onChange }) {
         </span>
         <span className="team">{m.away}</span>
       </div>
-      <div className="hero-stats">
-        <div><b>{pts(m.stake)}</b><span>{t('match.stake')}</span></div>
-        <div><b>{m.participants}</b><span>{t('match.participants')}</span></div>
-        <div>
-          <b>{pts(m.pot)}</b>
-          <span>{m.bonus > 0 ? t('match.potWithBonus', { bonus: pts(m.bonus) }) : t('match.pot')}</span>
-        </div>
-        <div>
-          <b className={!open && m.status === 'open' ? 'live' : ''}>
-            {m.status === 'cancelled' ? '—' : open ? cd : m.status === 'finished' ? 'FT' : '●'}
-          </b>
-          <span>
-            {m.status === 'cancelled'
-              ? t('match.cancelled')
-              : open
-                ? t('match.toKickoff')
-                : m.status === 'finished'
-                  ? t('match.finished')
-                  : t('match.inPlay')}
-          </span>
-        </div>
+      <div className={'match-status' + (!open && m.status === 'open' ? ' live' : '')}>
+        {m.status === 'cancelled'
+          ? t('match.cancelled')
+          : open
+            ? t('match.startsIn', { time: cd })
+            : m.status === 'finished'
+              ? t('match.finished')
+              : t('match.inPlay')}
       </div>
 
       {open && <PredictForm m={m} onDone={onChange} />}
