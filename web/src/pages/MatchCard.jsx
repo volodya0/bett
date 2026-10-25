@@ -73,7 +73,10 @@ function PredictForm({ m, onDone }) {
 
   return (
     <form className={'predict' + (m.my ? ' has-bet' : '')} onSubmit={save}>
-      <div className="predict-label">{m.my ? t('predict.titleEdit') : t('predict.title')}</div>
+      <div className="predict-label">
+        {m.my ? t('predict.titleEdit') : t('predict.title')}
+        {m.my && changed && <span className="unsaved"> · {t('predict.unsaved')}</span>}
+      </div>
       <div className="predict-row">
         <div className="score-pair">
           <ScoreInput value={home} onChange={setHome} />

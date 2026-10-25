@@ -10,6 +10,7 @@
   --border: #d4d4d4;
   --red: #c62828;
   --gold: #e3a400;
+  --warn: #b35c00;
   --error-bg: #fdecea;
   --error-border: #f3c2bd;
   --focus-bg: #fffbe6;
@@ -26,6 +27,7 @@
     --green: #4cc26e;
     --green-dark: #2e9a4f;
     --red: #ff6b6b;
+    --warn: #ffb347;
     --error-bg: #3a1f1f;
     --error-border: #6b3434;
     --focus-bg: #2a2a2a;
@@ -148,6 +150,7 @@ label.checkbox input { width: auto; }
 .predict-actions .btn { height: 28px; padding-top: 0; padding-bottom: 0; }
 .icon-btn { width: 28px; padding: 0 !important; display: inline-flex; align-items: center; justify-content: center; }
 .hint { margin: -2px 0 0; text-align: center; }
+.unsaved { color: var(--warn); font-weight: 700; }
 
 /* [− 2 +] as one segmented control: every part is the same height */
 .score-input { display: flex; height: 28px; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
