@@ -22,16 +22,16 @@
     --bg: #141414;
     --card: #1d1d1d;
     --strip: #252525;
-    --text: #ffffff;
-    --muted: #c4c4c4;
-    --border: #ffffff;
+    --text: #e2e2e2;
+    --muted: #a8a8a8;
+    --border: #444444;
     --green: #4cc26e;
     --green-dark: #2e9a4f;
     --green-light: #18301f;
-    --green-border: #ffffff;
+    --green-border: #2f5c3c;
     --red: #ff6b6b;
     --error-bg: #3a1f1f;
-    --error-border: #ffffff;
+    --error-border: #6b3434;
     --focus-bg: #2a2a2a;
   }
 }
