@@ -11,7 +11,7 @@ export default function Rules() {
   useEffect(() => {
     api.get('/api/rules').then(setR);
   }, []);
-  if (!r) return <div className="loading">⚽</div>;
+  if (!r) return <div className="loading" />;
 
   const sum = r.wExact + r.wOutcome || 1;
   return (

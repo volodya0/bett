@@ -62,7 +62,7 @@ function AdminMatches() {
     refresh();
   };
 
-  if (!matches) return <div className="loading">⚽</div>;
+  if (!matches) return <div className="loading" />;
   const open = matches.filter((m) => m.status === 'open');
   const closed = matches.filter((m) => m.status !== 'open').reverse();
 
@@ -229,7 +229,7 @@ function AiPrompt() {
       <summary>{t('admin.aiTitle')}</summary>
       <p className="muted small">{t('admin.aiHint')}</p>
       <pre>{prompt}</pre>
-      <button type="button" className="btn ghost small-btn" onClick={copy}>📋 {t('admin.aiCopy')}</button>
+      <button type="button" className="btn ghost small-btn" onClick={copy}>{t('admin.aiCopy')}</button>
     </details>
   );
 }
@@ -275,9 +275,9 @@ function AdminMatchRow({ m, onEdit, onChange }) {
             <button className="btn primary small-btn">{t('admin.final')}</button>
           </form>
           <div className="row">
-            {onEdit && <button className="btn ghost small-btn" onClick={onEdit}>✏️</button>}
+            {onEdit && <button className="btn ghost small-btn" onClick={onEdit}>{t('admin.edit')}</button>}
             <button className="btn ghost small-btn" onClick={cancel}>{t('admin.cancelMatch')}</button>
-            {m.participants === 0 && <button className="btn ghost small-btn" onClick={remove}>🗑️</button>}
+            {m.participants === 0 && <button className="btn ghost small-btn" onClick={remove}>{t('admin.delete')}</button>}
           </div>
         </div>
       ) : (
@@ -297,7 +297,7 @@ function AdminUsers() {
   useEffect(() => {
     load();
   }, []);
-  if (!users) return <div className="loading">⚽</div>;
+  if (!users) return <div className="loading" />;
 
   const reload = () => {
     load();
@@ -343,7 +343,7 @@ function AdminUsers() {
                   {u.approved ? (
                     <>
                       <button className="btn ghost small-btn" onClick={() => adjust(u)}>{t('admin.adjustButton')}</button>
-                      <button className="btn ghost small-btn" onClick={() => resetPw(u)}>🔑</button>
+                      <button className="btn ghost small-btn" onClick={() => resetPw(u)}>{t('admin.password')}</button>
                     </>
                   ) : (
                     <>
@@ -370,7 +370,7 @@ function AdminSettings() {
   useEffect(() => {
     api.get('/api/admin/settings').then(setS);
   }, []);
-  if (!s) return <div className="loading">⚽</div>;
+  if (!s) return <div className="loading" />;
   const set = (k) => (e) => setS({ ...s, [k]: e.target.value });
 
   const save = async (e) => {

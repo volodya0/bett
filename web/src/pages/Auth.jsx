@@ -32,7 +32,6 @@ export default function Auth() {
   return (
     <div className="auth">
       <div className="card auth-card">
-        <div className="auth-ball">⚽</div>
         <h1>{siteName}</h1>
         <p className="muted">{t('auth.tagline')}</p>
         <div className="tabs">

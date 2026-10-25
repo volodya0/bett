@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { api, fmtDate, pts, TIER_EMOJI } from '../api.js';
+import { api, fmtDate, pts } from '../api.js';
 import { useI18n } from '../i18n.jsx';
 import { toast } from '../ui.js';
 import Comments from '../Comments.jsx';
@@ -20,7 +20,7 @@ export default function MatchCard({ m, now, onChange }) {
       <div className="teams big">
         <span className="team">{m.home}</span>
         <span className="score">
-          {m.status === 'finished' ? `${m.homeScore}:${m.awayScore}` : m.status === 'cancelled' ? '✖' : 'vs'}
+          {m.status === 'finished' ? `${m.homeScore}:${m.awayScore}` : m.status === 'cancelled' ? '—' : 'vs'}
         </span>
         <span className="team">{m.away}</span>
       </div>
@@ -33,7 +33,7 @@ export default function MatchCard({ m, now, onChange }) {
         </div>
         <div>
           <b className={!open && m.status === 'open' ? 'live' : ''}>
-            {m.status === 'cancelled' ? '—' : open ? cd : m.status === 'finished' ? '🏁' : '●'}
+            {m.status === 'cancelled' ? '—' : open ? cd : m.status === 'finished' ? 'FT' : '●'}
           </b>
           <span>
             {m.status === 'cancelled'
@@ -142,7 +142,6 @@ function MyResult({ my }) {
   const score = `${my.home}:${my.away}`;
   return (
     <div className={'my-result ' + (my.payout > 0 ? 'won' : 'lost')}>
-      <span className="big-emoji">{my.payout > 0 ? TIER_EMOJI[my.tier] || '💰' : '💸'}</span>
       <span>
         {my.payout > 0
           ? t('result.won', { label: t('tier.' + my.tier), score, payout: pts(my.payout) })
@@ -161,14 +160,14 @@ function ParticipantList({ list, m }) {
         <li key={p.username} className={p.me ? 'me' : ''}>
           <span className="who">{p.username}{p.me && t('match.me')}</span>
           {p.hidden ? (
-            <span className="hidden-bet" title={t('match.secret')}>🤫 ?:?</span>
+            <span className="hidden-bet" title={t('match.secret')}>?:?</span>
           ) : (
             <span className="bet">{p.home}:{p.away}</span>
           )}
           <span className="payout">
             {m.status === 'finished' &&
               (p.payout > 0 ? (
-                <span className="win" title={t('tier.' + p.tier)}>{TIER_EMOJI[p.tier]} +{pts(p.payout)}</span>
+                <span className="win">+{pts(p.payout)} <span className="tier">{t('tier.' + p.tier)}</span></span>
               ) : (
                 <span className="muted">0</span>
               ))}

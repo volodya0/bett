@@ -37,4 +37,3 @@ export const signedPts = (cents) => (cents > 0 ? '+' : cents < 0 ? '−' : '') +
 export const fmtDate = (iso, locale) =>
   new Date(iso).toLocaleString(locale, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 
-export const TIER_EMOJI = { exact: '🎯', diff: '🔥', outcome: '👍', near: '🤏', closest: '📏' };

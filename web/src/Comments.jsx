@@ -58,7 +58,7 @@ export default function Comments({ matchId, count: initialCount = 0, defaultOpen
   return (
     <div className="comments">
       <button type="button" className="comments-toggle" onClick={toggle} aria-expanded={open}>
-        💬 {t('comments.button')} ({count}) <span className="chev">{open ? '▴' : '▾'}</span>
+        {t('comments.button')} ({count}) <span className="chev">{open ? '▴' : '▾'}</span>
       </button>
       {open && (
         <div className="comments-body">
@@ -70,7 +70,7 @@ export default function Comments({ matchId, count: initialCount = 0, defaultOpen
                 <b>{c.username}</b>
                 <span className="muted small">{new Date(c.createdAt + 'Z').toLocaleString(locale, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })}</span>
                 {(c.mine || user?.isAdmin) && (
-                  <button type="button" className="link danger small" onClick={() => remove(c)} title={t('comments.delete')}>✖</button>
+                  <button type="button" className="link danger small" onClick={() => remove(c)} title={t('comments.delete')}>×</button>
                 )}
               </div>
               <div className="comment-text">{c.text}</div>

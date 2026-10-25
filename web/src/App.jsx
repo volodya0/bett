@@ -38,7 +38,7 @@ export default function App() {
   }, [lang]);
 
   const ctx = useMemo(() => ({ ...me, refresh }), [me, refresh]);
-  if (!me) return <div className="loading">⚽</div>;
+  if (!me) return <div className="loading" />;
 
   return (
     <MeContext.Provider value={ctx}>
@@ -95,7 +95,7 @@ function Header() {
         <div className="wallet">
           {user && (
             <span className={'balance' + (user.balance < 0 ? ' negative' : '')} title={t('balance.title')}>
-              💰 {signedPts(user.balance)}
+              {signedPts(user.balance)}
             </span>
           )}
         </div>
@@ -112,7 +112,7 @@ function Header() {
             </NavLink>
           )}
           <span className="nav-spacer" />
-          <span className="nav-user">👤 {user.username}</span>
+          <span className="nav-user">{user.username}</span>
           <button className="link" onClick={logout}>{t('nav.logout')}</button>
         </nav>
       )}
@@ -130,7 +130,6 @@ function Pending() {
   return (
     <div className="auth">
       <div className="card auth-card stack">
-        <div className="auth-ball">⏳</div>
         <h2>{t('pending.title')}</h2>
         <p className="muted">{t('pending.text', { user: user.username })}</p>
         <button className="btn primary" onClick={refresh}>{t('pending.check')}</button>

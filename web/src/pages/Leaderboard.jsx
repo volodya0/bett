@@ -10,7 +10,7 @@ export default function Leaderboard() {
   useEffect(() => {
     api.get('/api/leaderboard').then(setRows);
   }, []);
-  if (!rows) return <div className="loading">⚽</div>;
+  if (!rows) return <div className="loading" />;
 
   return (
     <section>
@@ -23,14 +23,14 @@ export default function Leaderboard() {
               <th>{t('table.player')}</th>
               <th className="hide-sm" title={t('table.betsHint')}>{t('table.bets')}</th>
               <th className="hide-sm" title={t('table.hitsHint')}>{t('table.hits')}</th>
-              <th title={t('table.exactHint')}>🎯</th>
+              <th title={t('table.exactHint')}>{t('table.exact')}</th>
               <th>{t('table.balance')}</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((r, i) => (
               <tr key={r.id} className={r.id === user.id ? 'me' : ''}>
-                <td className="pos">{['🥇', '🥈', '🥉'][i] || i + 1}</td>
+                <td className="pos">{i + 1}</td>
                 <td>{r.username}</td>
                 <td className="hide-sm">{r.bets}</td>
                 <td className="hide-sm">{r.hits}</td>

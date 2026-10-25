@@ -33,7 +33,7 @@ export default function Matches() {
   };
 
   if (error) return <div className="error">{error}</div>;
-  if (!matches) return <div className="loading">⚽</div>;
+  if (!matches) return <div className="loading" />;
 
   const isOpen = (m) => m.status === 'open' && Date.parse(m.kickoff) > now;
   const open = matches.filter(isOpen);
