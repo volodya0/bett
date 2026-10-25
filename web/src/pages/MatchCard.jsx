@@ -99,21 +99,23 @@ function PredictForm({ m, onDone }) {
     <form className="predict" onSubmit={save}>
       <div className="predict-label">{m.my ? t('predict.titleEdit') : t('predict.title')}</div>
       <div className="predict-row">
-        <ScoreInput value={home} onChange={setHome} />
-        <span className="colon">:</span>
-        <ScoreInput value={away} onChange={setAway} />
+        <div className="score-pair">
+          <ScoreInput value={home} onChange={setHome} />
+          <span className="colon">:</span>
+          <ScoreInput value={away} onChange={setAway} />
+        </div>
+        <div className="predict-actions">
+          {(changed || !m.my) && (
+            <button className="btn primary" disabled={busy}>
+              {m.my ? t('predict.update') : t('predict.place', { stake: pts(m.stake) })}
+            </button>
+          )}
+          {m.my && (
+            <button type="button" className="btn ghost" onClick={withdraw}>{t('predict.withdraw')}</button>
+          )}
+        </div>
       </div>
       {error && <div className="error">{error}</div>}
-      <div className="row center">
-        {(changed || !m.my) && (
-          <button className="btn primary" disabled={busy}>
-            {m.my ? t('predict.update') : t('predict.place', { stake: pts(m.stake) })}
-          </button>
-        )}
-        {m.my && (
-          <button type="button" className="btn ghost" onClick={withdraw}>{t('predict.withdraw')}</button>
-        )}
-      </div>
     </form>
   );
 }
