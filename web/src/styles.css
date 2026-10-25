@@ -92,8 +92,9 @@ main.container { padding-top: 10px; padding-bottom: 24px; min-height: 60vh; }
 .btn {
   border: 1px solid transparent;
   border-radius: var(--radius);
-  padding: 5px 12px;
+  padding: 3px 10px;
   font: inherit;
+  font-size: 0.9rem;
   font-weight: 700;
   cursor: pointer;
   display: inline-block;
@@ -103,7 +104,7 @@ main.container { padding-top: 10px; padding-bottom: 24px; min-height: 60vh; }
 .btn.primary:hover { background: var(--green-dark); text-decoration: none; }
 .btn.ghost { background: var(--strip); border-color: var(--border); color: var(--text); }
 .btn.ghost:hover { background: var(--green-light); }
-.small-btn { padding: 2px 8px; font-size: 0.85rem; }
+.small-btn { padding: 1px 6px; font-size: 0.8rem; }
 input, select {
   font: inherit;
   padding: 4px 6px;
@@ -148,15 +149,15 @@ label.checkbox input { width: auto; }
 .score-pair { display: flex; align-items: center; gap: 6px; }
 .colon { font-size: 1.1rem; font-weight: 700; }
 .predict-actions { display: flex; gap: 6px; }
-.predict-actions .btn { height: 32px; padding-top: 0; padding-bottom: 0; }
+.predict-actions .btn { height: 28px; padding-top: 0; padding-bottom: 0; }
 
 /* [− 2 +] as one segmented control: every part is the same height */
-.score-input { display: flex; height: 32px; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--card); }
+.score-input { display: flex; height: 28px; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: var(--card); }
 .score-input button,
 .score-input input { height: 100%; border: 0; border-radius: 0; margin: 0; background: var(--card); color: var(--text); font: inherit; }
-.score-input button { width: 28px; font-size: 1rem; line-height: 1; cursor: pointer; color: var(--muted); background: var(--strip); }
+.score-input button { width: 24px; font-size: 0.95rem; line-height: 1; cursor: pointer; color: var(--muted); background: var(--strip); }
 .score-input button:hover { background: var(--border); color: var(--text); }
-.score-input input { width: 38px; padding: 0; text-align: center; font-size: 1.1rem; font-weight: 700; border-left: 1px solid var(--border); border-right: 1px solid var(--border); -moz-appearance: textfield; }
+.score-input input { width: 34px; padding: 0; text-align: center; font-size: 1rem; font-weight: 700; border-left: 1px solid var(--border); border-right: 1px solid var(--border); -moz-appearance: textfield; }
 .score-input input:focus { outline: none; background: var(--focus-bg); }
 .score-input:focus-within { border-color: var(--green); }
 .score-input input::-webkit-inner-spin-button,
@@ -232,7 +233,7 @@ section.card > .comments { border-top: 0; padding-top: 0; }
 .auth-card { width: 100%; max-width: 340px; text-align: center; padding: 12px; }
 .auth-card form { text-align: left; }
 .tabs { display: flex; margin: 8px 0; border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; }
-.tabs button { flex: 1; padding: 5px; border: 0; background: var(--strip); font: inherit; cursor: pointer; color: var(--text); }
+.tabs button { flex: 1; padding: 3px; border: 0; background: var(--strip); font: inherit; cursor: pointer; color: var(--text); }
 .tabs button.active { background: var(--green); color: #fff; font-weight: 700; }
 
 .prose ol, .prose p { margin: 0 0 8px; }
