@@ -8,7 +8,7 @@ const uk = {
   'nav.admin': 'Адмінка',
   'nav.logout': 'Вийти',
   'balance.title': 'Балік',
-  'footer.note': 'Граємо на поінти. Без грошей, тільки понти',
+  'footer.note': 'Поки чисто на рейтинг',
   'footer.quoteHint': 'Клікни — буде інша',
 
   // auth
