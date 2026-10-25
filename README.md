@@ -29,32 +29,15 @@ npm test           # тести логіки розподілу
 
 ## Деплой
 
-Потрібен хостинг, що запускає Docker і має **постійний диск** (база — один файл `kumbet.db`).
+Основний варіант — безкоштовна VM e2-micro у Google Cloud з автодеплоєм через GitHub Actions
+(кожен push у `main` сам оновлює сайт). Покрокова інструкція: **[DEPLOY.md](DEPLOY.md)**.
 
-### Railway (найпростіше)
-1. Запуште репозиторій на GitHub.
-2. railway.com → New Project → Deploy from GitHub repo → оберіть репо (Dockerfile підхопиться сам).
-3. У сервісі: **Volumes → Add Volume**, mount path `/data`.
-4. **Settings → Networking → Generate Domain**. Готово.
-
-### Fly.io
-```bash
-fly launch --no-deploy        # погодьтесь на Dockerfile, регіон waw або fra
-fly volumes create data --size 1
-# додайте у fly.toml:
-# [mounts]
-#   source = "data"
-#   destination = "/data"
-fly deploy
-```
-
-### Будь-який VPS
+Апку можна запустити й на будь-якому хостингу з Docker і постійним диском (Railway, Fly.io, VPS):
 ```bash
 docker build -t kumbet .
 docker run -d -p 80:3000 -v kumbet-data:/data --restart unless-stopped kumbet
 ```
-
-**Бекап** — просто скопіюйте `/data/kumbet.db`.
+Бекап — це копія файлу `/data/kumbet.db`.
 
 ### Змінні середовища (необовʼязкові)
 | Змінна | Що робить |

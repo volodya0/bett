@@ -133,13 +133,14 @@ function Header() {
 }
 
 function Footer() {
+  const { version } = useMe();
   const [i, setI] = useState(() => Math.floor(Math.random() * QUOTES.length));
   return (
     <footer className="footer container">
       <p className="quote" onClick={() => setI((i + 1) % QUOTES.length)} title="Клікни — буде інша">
         {QUOTES[i]}
       </p>
-      <p className="muted small">Грається на умовні бали. Жодних грошей, лише гордість 🏆</p>
+      <p className="muted small">Грається на умовні бали. Жодних грошей, лише гордість 🏆 · <span title="Версія">v{version}</span></p>
     </footer>
   );
 }

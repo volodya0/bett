@@ -10,6 +10,7 @@ import { settle } from './scoring.js';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const PORT = process.env.PORT || 3000;
+const VERSION = process.env.APP_VERSION || 'dev';
 const ADMIN_USERNAMES = (process.env.ADMIN_USERNAMES || '')
   .split(',')
   .map((s) => s.trim().toLowerCase())
@@ -114,6 +115,12 @@ function publicMatch(m) {
   };
 }
 
+// Для перевірки після деплою.
+app.get('/api/health', (req, res) => {
+  db.prepare('SELECT 1').get();
+  res.json({ ok: true, version: VERSION });
+});
+
 // ---------- auth ----------
 
 app.get(
@@ -124,6 +131,7 @@ app.get(
     return {
       user: u && { id: u.id, username: u.username, isAdmin: !!u.is_admin, balance: balanceOf(u.id) },
       siteName: s.siteName,
+      version: VERSION,
       inviteRequired: !!s.inviteCode,
       jackpot: jackpotBalance(),
     };
