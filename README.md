@@ -1,0 +1,2 @@
+# bett
+Gamble-free betting
