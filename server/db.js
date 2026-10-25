@@ -79,6 +79,8 @@ CREATE TABLE IF NOT EXISTS settings (
 DELETE FROM transactions WHERE kind IN ('start', 'jackpot');
 DROP TABLE IF EXISTS jackpot;
 DELETE FROM settings WHERE key IN ('startingBalance', 'noWinnerPolicy', 'allowDebt');
+-- Old default site name → fall back to the new default.
+DELETE FROM settings WHERE key = 'siteName' AND value = '"Кумівський тоталізатор"';
 `);
 
 // Migration: approval flag on users (existing users count as approved).
@@ -87,7 +89,7 @@ if (!db.prepare('PRAGMA table_info(users)').all().some((c) => c.name === 'approv
 }
 
 export const DEFAULT_SETTINGS = {
-  siteName: 'Кумівський тоталізатор',
+  siteName: 'Тоталізатор',
   defaultStake: 1,       // default stake for new matches
   wExact: 10,            // weight for the exact score
   wDiff: 4,              // right winner and goal difference (2:1 vs 3:2, 1:1 vs 2:2)
