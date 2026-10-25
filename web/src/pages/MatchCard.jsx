@@ -28,10 +28,10 @@ export default function MatchCard({ m, now, onChange }) {
         {m.status === 'cancelled'
           ? t('match.cancelled')
           : open
-            ? t('match.startsIn', { time: cd })
+            ? `🔥 ${t('match.startsIn', { time: cd })}`
             : m.status === 'finished'
               ? t('match.finished')
-              : `🔥 ${t('match.inPlay')}`}
+              : t('match.inPlay')}
       </div>
 
       {open && <PredictForm m={m} onDone={onChange} />}
