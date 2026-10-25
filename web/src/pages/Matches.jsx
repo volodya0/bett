@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { api, fmtDate, pts, TIER_EMOJI } from '../api.js';
 import { useI18n } from '../i18n.jsx';
 import Comments from '../Comments.jsx';
+import Leaderboard from './Leaderboard.jsx';
 
 export function useNow(ms = 30_000) {
   const [now, setNow] = useState(Date.now());
@@ -46,6 +47,7 @@ export default function Matches() {
 
   return (
     <div className="stack-lg">
+      <Leaderboard />
       <Section title={t('matches.open')} empty={t('matches.openEmpty')} list={open} now={now} />
       {live.length > 0 && <Section title={t('matches.live')} list={live} now={now} />}
       {done.length > 0 && <Section title={t('matches.done')} list={done} now={now} />}

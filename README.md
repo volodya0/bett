@@ -1,7 +1,7 @@
 # ⚽ bett
 
 *Gamble-free betting* — football score predictions among friends, for virtual points.
-Stack: React + Node.js (Express) + SQLite in a single service. The UI is in Ukrainian.
+Stack: React + Node.js (Express) + SQLite in a single service. UI in Ukrainian and English.
 
 ## How it works
 

@@ -201,11 +201,9 @@ section.card > .comments { border-top: 0; padding-top: 0; }
 .table th { font-size: 0.8rem; color: var(--muted); font-weight: 600; }
 .table tr:last-child td { border-bottom: 0; }
 .table tr.me { background: var(--green-light); }
-.table .pos { font-size: 1.1rem; width: 40px; cursor: default; }
+.table .pos { font-size: 1.1rem; width: 40px; }
+@media (max-width: 560px) { .hide-sm { display: none; } }
 
-.history { list-style: none; margin: 0; padding: 0; }
-.history li { display: grid; grid-template-columns: 28px 1fr auto; gap: 8px; padding: 10px 14px; border-bottom: 1px solid var(--border); align-items: center; }
-.history li:last-child { border-bottom: 0; }
 
 /* ---------- admin ---------- */
 .subnav { display: flex; gap: 6px; }

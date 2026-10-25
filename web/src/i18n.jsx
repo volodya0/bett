@@ -2,9 +2,7 @@ import React, { createContext, useCallback, useContext, useMemo, useState } from
 
 const uk = {
   // nav & layout
-  'nav.matches': 'Матчі',
-  'nav.table': 'Таблиця',
-  'nav.history': 'Історія',
+  'nav.matches': 'Головна',
   'nav.rules': 'Правила',
   'nav.admin': 'Адмінка',
   'nav.logout': 'Вийти',
@@ -81,15 +79,6 @@ const uk = {
   'table.exactHint': 'Точних рахунків',
   'table.balance': 'Баланс',
 
-  // history
-  'history.title': 'Історія балансу',
-  'history.empty': 'Поки порожньо.',
-  'history.stake': 'Ставка: {match}',
-  'history.payout': 'Виграш: {match}',
-  'history.refund': 'Повернення: {match}',
-  'history.admin': 'Коригування від адміна',
-  'history.legacy': 'Інше',
-
   // rules
   'rules.title': 'Правила гри',
   'rules.1': 'Усі починають з 0 балів. Баланс може йти і в плюс, і в мінус — головне бути вище за кумів.',
@@ -161,7 +150,7 @@ const uk = {
   'admin.colAdmin': 'Адмін',
   'admin.adjustButton': '± бали',
   'admin.adjustPrompt': 'Скільки балів додати гравцю {user}? (відʼємне число — забрати)',
-  'admin.adjustNote': 'Коментар (видно гравцю в історії)',
+  'admin.adjustNote': 'Коментар (необовʼязково)',
   'admin.adjusted': 'Баланс змінено',
   'admin.passwordPrompt': 'Новий пароль для {user}:',
   'admin.passwordChanged': 'Пароль змінено',
@@ -194,9 +183,7 @@ const uk = {
 };
 
 const en = {
-  'nav.matches': 'Matches',
-  'nav.table': 'Table',
-  'nav.history': 'History',
+  'nav.matches': 'Home',
   'nav.rules': 'Rules',
   'nav.admin': 'Admin',
   'nav.logout': 'Log out',
@@ -268,13 +255,6 @@ const en = {
   'table.exactHint': 'Exact scores',
   'table.balance': 'Balance',
 
-  'history.title': 'Balance history',
-  'history.empty': 'Nothing yet.',
-  'history.stake': 'Bet: {match}',
-  'history.payout': 'Win: {match}',
-  'history.refund': 'Refund: {match}',
-  'history.admin': 'Admin adjustment',
-  'history.legacy': 'Other',
 
   'rules.title': 'Rules',
   'rules.1': 'Everyone starts at 0 points. Your balance can go up or down — just stay ahead of your friends.',
@@ -344,7 +324,7 @@ const en = {
   'admin.colAdmin': 'Admin',
   'admin.adjustButton': '± points',
   'admin.adjustPrompt': 'How many points to give {user}? (negative to take away)',
-  'admin.adjustNote': 'Comment (shown in the player history)',
+  'admin.adjustNote': 'Comment (optional)',
   'admin.adjusted': 'Balance changed',
   'admin.passwordPrompt': 'New password for {user}:',
   'admin.passwordChanged': 'Password changed',

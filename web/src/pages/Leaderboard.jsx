@@ -21,8 +21,8 @@ export default function Leaderboard() {
             <tr>
               <th>#</th>
               <th>{t('table.player')}</th>
-              <th title={t('table.betsHint')}>{t('table.bets')}</th>
-              <th title={t('table.hitsHint')}>{t('table.hits')}</th>
+              <th className="hide-sm" title={t('table.betsHint')}>{t('table.bets')}</th>
+              <th className="hide-sm" title={t('table.hitsHint')}>{t('table.hits')}</th>
               <th title={t('table.exactHint')}>🎯</th>
               <th>{t('table.balance')}</th>
             </tr>
@@ -32,8 +32,8 @@ export default function Leaderboard() {
               <tr key={r.id} className={r.id === user.id ? 'me' : ''}>
                 <td className="pos">{['🥇', '🥈', '🥉'][i] || i + 1}</td>
                 <td>{r.username}</td>
-                <td>{r.bets}</td>
-                <td>{r.hits}</td>
+                <td className="hide-sm">{r.bets}</td>
+                <td className="hide-sm">{r.hits}</td>
                 <td>{r.exact}</td>
                 <td className={r.balance > 0 ? 'win' : r.balance < 0 ? 'lose' : ''}>
                   <b>{signedPts(r.balance)}</b>

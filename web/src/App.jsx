@@ -5,8 +5,6 @@ import { QUOTES, useI18n } from './i18n.jsx';
 import Auth from './pages/Auth.jsx';
 import Matches from './pages/Matches.jsx';
 import MatchPage from './pages/MatchPage.jsx';
-import Leaderboard from './pages/Leaderboard.jsx';
-import History from './pages/History.jsx';
 import Rules from './pages/Rules.jsx';
 import Admin from './pages/Admin.jsx';
 import NotFound from './pages/NotFound.jsx';
@@ -50,8 +48,7 @@ export default function App() {
           <Routes>
             <Route path="/" element={<Matches />} />
             <Route path="/match/:id" element={<MatchPage />} />
-            <Route path="/leaderboard" element={<Leaderboard />} />
-            <Route path="/history" element={<History />} />
+            <Route path="/leaderboard" element={<Navigate to="/" />} />
             <Route path="/rules" element={<Rules />} />
             <Route path="/admin/*" element={me.user.isAdmin ? <Admin /> : <Navigate to="/" />} />
             <Route path="/login" element={<Navigate to="/" />} />
@@ -110,8 +107,6 @@ function Header() {
       {user?.approved && (
         <nav className="container nav">
           <NavLink to="/" end>{t('nav.matches')}</NavLink>
-          <NavLink to="/leaderboard">{t('nav.table')}</NavLink>
-          <NavLink to="/history">{t('nav.history')}</NavLink>
           <NavLink to="/rules">{t('nav.rules')}</NavLink>
           {user.isAdmin && (
             <NavLink to="/admin">
